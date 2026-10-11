@@ -31,7 +31,38 @@ class OrderService {
     });
   }
 
-  /// Met à jour le statut d'une commande (ex: annulation par le client)
+  /// Écoute les commandes destinées à un vendeur (en fonction du nom de la boutique ou des produits).
+  Stream<List<OrderModel>> watchVendorOrders(String shopName, {Set<String>? vendorProductIds}) {
+    return _orders.snapshots().map((snapshot) {
+      final list = snapshot.docs.map((doc) {
+        return OrderModel.fromMap(doc.id, doc.data());
+      }).where((order) {
+        if (shopName.isEmpty) return true;
+
+        // Si le nom de la boutique correspond à un article
+        final hasShopItem = order.items.any((item) =>
+            item.shopName.trim().toLowerCase() == shopName.trim().toLowerCase());
+        if (hasShopItem) return true;
+
+        // Si un des articles appartient aux produits du vendeur
+        if (vendorProductIds != null && vendorProductIds.isNotEmpty) {
+          final hasProduct = order.items.any((item) => vendorProductIds.contains(item.productId));
+          if (hasProduct) return true;
+        }
+
+        // Si aucun nom de boutique n'était renseigné sur la commande (rétro-compatibilité)
+        final noShopInItems = order.items.every((item) => item.shopName.isEmpty);
+        if (noShopInItems) return true;
+
+        return false;
+      }).toList();
+
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
+    });
+  }
+
+  /// Met à jour le statut d'une commande (ex: annulation par le client, acceptation par le vendeur)
   Future<void> updateStatus(String orderId, OrderStatus status) {
     return _orders.doc(orderId).update({
       'status': status.name,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/app_user.dart';
 import 'client/client_dashboard_view.dart';
+import 'vendeur/vendeur_dashboard_view.dart';
 
 /// Squelette commun : barre du haut + déconnexion + contenu du rôle.
 class _DashboardScaffold extends StatelessWidget {
@@ -70,12 +71,9 @@ class VendeurHome extends StatelessWidget {
   const VendeurHome({super.key, required this.user, required this.onLogout});
 
   @override
-  Widget build(BuildContext context) => _DashboardScaffold(
+  Widget build(BuildContext context) => VendeurDashboardView(
         user: user,
         onLogout: onLogout,
-        title: 'Espace vendeur',
-        icon: Icons.storefront,
-        message: 'Ici : votre boutique, vos produits et les commandes reçues.',
       );
 }
 

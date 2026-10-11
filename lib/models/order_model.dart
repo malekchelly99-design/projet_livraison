@@ -23,12 +23,14 @@ class OrderItem {
   final String name;
   final double price;
   final int quantity;
+  final String shopName;
 
   const OrderItem({
     required this.productId,
     required this.name,
     required this.price,
     required this.quantity,
+    this.shopName = '',
   });
 
   factory OrderItem.fromMap(Map<String, dynamic> map) {
@@ -37,6 +39,7 @@ class OrderItem {
       name: (map['name'] as String?) ?? '',
       price: (map['price'] as num?)?.toDouble() ?? 0.0,
       quantity: (map['quantity'] as num?)?.toInt() ?? 1,
+      shopName: (map['shopName'] as String?) ?? '',
     );
   }
 
@@ -45,6 +48,7 @@ class OrderItem {
         'name': name,
         'price': price,
         'quantity': quantity,
+        'shopName': shopName,
       };
 }
 

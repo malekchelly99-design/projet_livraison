@@ -28,4 +28,12 @@ class UserService {
       return data == null ? null : AppUser.fromMap(doc.id, data);
     });
   }
+
+  /// Met à jour les informations du profil utilisateur.
+  Future<void> updateProfile(String uid, Map<String, dynamic> data) {
+    return _users.doc(uid).update({
+      ...data,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
 }

@@ -9,6 +9,7 @@ class Product {
   final int deliveryTimeMinutes;
   final bool isPopular;
   final String imageUrl;
+  final String? vendorId;
 
   const Product({
     required this.id,
@@ -21,6 +22,7 @@ class Product {
     this.deliveryTimeMinutes = 25,
     this.isPopular = false,
     this.imageUrl = '',
+    this.vendorId,
   });
 
   factory Product.fromMap(String id, Map<String, dynamic> data) {
@@ -35,6 +37,35 @@ class Product {
       deliveryTimeMinutes: (data['deliveryTimeMinutes'] as num?)?.toInt() ?? 25,
       isPopular: (data['isPopular'] as bool?) ?? false,
       imageUrl: (data['imageUrl'] as String?) ?? '',
+      vendorId: data['vendorId'] as String?,
+    );
+  }
+
+  Product copyWith({
+    String? id,
+    String? name,
+    String? description,
+    double? price,
+    String? category,
+    String? shopName,
+    double? rating,
+    int? deliveryTimeMinutes,
+    bool? isPopular,
+    String? imageUrl,
+    String? vendorId,
+  }) {
+    return Product(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      price: price ?? this.price,
+      category: category ?? this.category,
+      shopName: shopName ?? this.shopName,
+      rating: rating ?? this.rating,
+      deliveryTimeMinutes: deliveryTimeMinutes ?? this.deliveryTimeMinutes,
+      isPopular: isPopular ?? this.isPopular,
+      imageUrl: imageUrl ?? this.imageUrl,
+      vendorId: vendorId ?? this.vendorId,
     );
   }
 
@@ -48,6 +79,7 @@ class Product {
         'deliveryTimeMinutes': deliveryTimeMinutes,
         'isPopular': isPopular,
         'imageUrl': imageUrl,
+        if (vendorId != null) 'vendorId': vendorId,
       };
 }
 
