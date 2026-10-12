@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1097861757602",
+    "project_id": "livraison-6f112",
+    "storage_bucket": "livraison-6f112.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1097861757602:android:14c5dff96ec3eb8aad75fb",
+        "android_client_info": {
+          "package_name": "com.example.livraison_rapide"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBsb8bT8LNqN_OUDtaFDQ4DBvEInePCrzQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
