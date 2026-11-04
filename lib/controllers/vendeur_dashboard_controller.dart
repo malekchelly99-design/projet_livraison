@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import '../models/app_user.dart';
 import '../models/order_model.dart';
 import '../models/product.dart';
+import '../services/boutique_service.dart';
 import '../services/catalog_service.dart';
 import '../services/order_service.dart';
 import '../services/user_service.dart';
@@ -12,6 +14,7 @@ class VendeurDashboardController extends BaseController {
   final CatalogService _catalogService;
   final OrderService _orderService;
   final UserService _userService;
+  final BoutiqueService _boutiqueService;
 
   StreamSubscription<List<Product>>? _productsSub;
   StreamSubscription<List<OrderModel>>? _ordersSub;
@@ -51,9 +54,11 @@ class VendeurDashboardController extends BaseController {
     CatalogService? catalogService,
     OrderService? orderService,
     UserService? userService,
+    BoutiqueService? boutiqueService,
   })  : _catalogService = catalogService ?? CatalogService(),
         _orderService = orderService ?? OrderService(),
-        _userService = userService ?? UserService() {
+        _userService = userService ?? UserService(),
+        _boutiqueService = boutiqueService ?? BoutiqueService() {
     _initSubscriptions();
   }
 
@@ -69,6 +74,21 @@ class VendeurDashboardController extends BaseController {
   void _initSubscriptions() {
     _isLoading = true;
     notifyListeners();
+
+    // S'assure que la fiche existe dans la collection `boutiques`
+    _boutiqueService.sync(
+      vendeurId: user.uid,
+      nomBoutique: shopName,
+      categorie: shopCategory,
+      adresse: shopAddress,
+      ville: shopCity,
+      matriculeFiscale: shopTaxId,
+      nomResponsable: user.name,
+      email: user.email,
+      telephone: user.phone,
+    ).catchError((e) {
+      debugPrint('Sync boutique error: $e');
+    });
 
     _productsSub = _catalogService
         .watchVendorProducts(shopName: shopName, vendorId: user.uid)
@@ -134,6 +154,11 @@ class VendeurDashboardController extends BaseController {
   void toggleShopOpen(bool value) {
     _isOpen = value;
     notifyListeners();
+    // Garde le champ `disponible` de la collection `boutiques` à jour.
+    _boutiqueService.setDisponible(user.uid, value).catchError((e) {
+      _errorMessage = 'Impossible de mettre à jour la disponibilité : $e';
+      notifyListeners();
+    });
   }
 
   // --- STATS / KPI ---
@@ -280,6 +305,17 @@ class VendeurDashboardController extends BaseController {
       };
 
       await _userService.updateProfile(user.uid, {'profile': updatedProfile});
+      await _boutiqueService.sync(
+        vendeurId: user.uid,
+        nomBoutique: newShopName,
+        categorie: newCategory,
+        adresse: newAddress,
+        ville: newCity,
+        matriculeFiscale: newTaxId,
+        nomResponsable: user.name,
+        email: user.email,
+        telephone: user.phone,
+      );
       return true;
     } catch (e) {
       _errorMessage = 'Erreur lors de la mise à jour : $e';

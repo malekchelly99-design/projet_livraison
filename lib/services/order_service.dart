@@ -173,101 +173,33 @@ class OrderService {
     });
   }
 
-  /// Génère des commandes de démonstration dans Firestore pour tester le rôle livreur.
-  Future<void> createDemoOrders() async {
-    final demoList = [
-      OrderModel(
-        id: '',
-        clientId: 'demo_client_1',
-        clientName: 'Sami Mansour',
-        clientPhone: '+216 98 111 222',
-        deliveryAddress: 'Avenue Habib Bourguiba, Appt 3A, Ariana',
-        vendorName: 'Pizzeria Bella Napoli',
-        vendorAddress: '12 Rue de la Marsa, Tunis',
-        vendorPhone: '+216 71 222 333',
-        items: const [
-          OrderItem(
-            productId: 'demo_p1',
-            name: 'Pizza Margherita XL',
-            price: 18.0,
-            quantity: 2,
-            shopName: 'Pizzeria Bella Napoli',
-          ),
-          OrderItem(
-            productId: 'demo_p2',
-            name: 'Coca-Cola 1.5L',
-            price: 4.0,
-            quantity: 1,
-            shopName: 'Pizzeria Bella Napoli',
-          ),
-        ],
-        subtotal: 40.0,
-        deliveryFee: 6.0,
-        discount: 0.0,
-        total: 46.0,
-        status: OrderStatus.ready,
-        createdAt: DateTime.now(),
-        paymentMethod: 'Paiement à la livraison (Espèces)',
-        notes: 'Sonner à l interphone Mansour',
-      ),
-      OrderModel(
-        id: '',
-        clientId: 'demo_client_2',
-        clientName: 'Amina Triki',
-        clientPhone: '+216 22 444 555',
-        deliveryAddress: 'Résidence les Jasmin, Bloc B, Ennasr 2',
-        vendorName: 'Tech Store Express',
-        vendorAddress: 'Centre Commercial Carrefour, Marsa',
-        vendorPhone: '+216 70 888 999',
-        items: const [
-          OrderItem(
-            productId: 'demo_p3',
-            name: 'Écouteurs Sans Fil Bluetooth',
-            price: 85.0,
-            quantity: 1,
-            shopName: 'Tech Store Express',
-          ),
-        ],
-        subtotal: 85.0,
-        deliveryFee: 7.5,
-        discount: 5.0,
-        total: 87.5,
-        status: OrderStatus.preparing,
-        createdAt: DateTime.now().subtract(const Duration(minutes: 15)),
-        paymentMethod: 'Paiement à la livraison (Espèces)',
-        notes: 'Appeler avant d arriver',
-      ),
-      OrderModel(
-        id: '',
-        clientId: 'demo_client_3',
-        clientName: 'Youssef Trabelsi',
-        clientPhone: '+216 55 777 888',
-        deliveryAddress: '15 Rue des Oliviers, Lac 1, Tunis',
-        vendorName: 'Boulangerie Patisserie Gourmet',
-        vendorAddress: 'Les Berges du Lac 2, Tunis',
-        vendorPhone: '+216 71 999 000',
-        items: const [
-          OrderItem(
-            productId: 'demo_p4',
-            name: 'Boîte de 12 Croissants',
-            price: 24.0,
-            quantity: 1,
-            shopName: 'Boulangerie Patisserie Gourmet',
-          ),
-        ],
-        subtotal: 24.0,
-        deliveryFee: 5.0,
-        discount: 0.0,
-        total: 29.0,
-        status: OrderStatus.ready,
-        createdAt: DateTime.now().subtract(const Duration(minutes: 5)),
-        paymentMethod: 'Paiement en ligne',
-      ),
-    ];
+  /// Nettoie toutes les commandes de test / démo de la collection orders.
+  Future<int> purgeDemoOrders() async {
+    final snapshot = await _orders.get();
+    int count = 0;
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+      final clientId = (data['clientId'] as String? ?? '').toLowerCase();
+      final clientName = (data['clientName'] as String? ?? '').toLowerCase();
+      final vendorName = (data['vendorName'] as String? ?? '').toLowerCase();
+      final docId = doc.id.toLowerCase();
 
-    for (final order in demoList) {
-      await _orders.add(order.toMap());
+      final isDemo = docId.startsWith('demo_') ||
+          clientId.startsWith('demo_') ||
+          clientName.contains('demo') ||
+          clientName.contains('sami mansour') ||
+          clientName.contains('amina triki') ||
+          clientName.contains('youssef trabelsi') ||
+          vendorName.contains('bella napoli') ||
+          vendorName.contains('tech store express') ||
+          vendorName.contains('boulangerie gourmet');
+
+      if (isDemo) {
+        await doc.reference.delete();
+        count++;
+      }
     }
+    return count;
   }
 
   /// Met à jour le profil du livreur.

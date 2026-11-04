@@ -70,8 +70,36 @@ class UserService {
   }
 
   /// Supprime un utilisateur de Firestore.
-  Future<void> deleteUser(String uid) {
-    return _users.doc(uid).delete();
+  Future<void> deleteUser(String uid) async {
+    await _users.doc(uid).delete();
+    // Si c'était un vendeur, on retire aussi sa fiche boutique.
+    await _db.collection('boutiques').doc(uid).delete();
+  }
+
+  /// Supprime tous les utilisateurs de test / démo de la collection users.
+  Future<int> purgeDemoUsers() async {
+    final snapshot = await _users.get();
+    int count = 0;
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+      final email = (data['email'] as String? ?? '').toLowerCase();
+      final uid = doc.id.toLowerCase();
+      final name = (data['name'] as String? ?? '').toLowerCase();
+
+      final isDemo = uid.startsWith('demo_') ||
+          email.contains('demo') ||
+          email.endsWith('@livraison.com') ||
+          email.contains('bellanapoli.tn') ||
+          name.contains('ali ben salah') ||
+          name.contains('karim gharbi') ||
+          name.contains('marco bellini');
+
+      if (isDemo) {
+        await doc.reference.delete();
+        await _db.collection('boutiques').doc(doc.id).delete();
+        count++;
+      }
+    }
+    return count;
   }
 }
-

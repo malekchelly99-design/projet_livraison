@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../controllers/admin_dashboard_controller.dart';
 import '../../models/app_user.dart';
 import '../../models/order_model.dart';
-import '../../models/product.dart';
 import '../../models/user_role.dart';
 
 class AdminDashboardView extends StatefulWidget {
@@ -25,18 +24,6 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   // Controllers pour recherche et formulaires
   final TextEditingController _orderSearchCtrl = TextEditingController();
   final TextEditingController _userSearchCtrl = TextEditingController();
-  final TextEditingController _productSearchCtrl = TextEditingController();
-
-  final List<String> _productCategories = const [
-    'Tous',
-    'Plats',
-    'Sandwiches',
-    'Pizzas',
-    'Boissons',
-    'Desserts',
-    'Épicerie',
-    'Autre',
-  ];
 
   @override
   void initState() {
@@ -48,7 +35,6 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   void dispose() {
     _orderSearchCtrl.dispose();
     _userSearchCtrl.dispose();
-    _productSearchCtrl.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -160,9 +146,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     label: 'Utilisateurs',
                   ),
                   NavigationDestination(
-                    icon: Icon(Icons.inventory_2_outlined),
-                    selectedIcon: Icon(Icons.inventory_2, color: Colors.deepOrange),
-                    label: 'Catalogue',
+                    icon: Icon(Icons.storefront_outlined),
+                    selectedIcon: Icon(Icons.storefront, color: Colors.deepOrange),
+                    label: 'Boutiques',
                   ),
                 ],
               ),
@@ -182,13 +168,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       case 2:
         return 'Gestion des Utilisateurs';
       case 3:
-        return 'Catalogue & Produits';
-      case 4:
         return 'Boutiques & Vendeurs';
-      case 5:
+      case 4:
         return 'Flotte de Livreurs';
-      case 6:
-        return 'Paramètres & Maintenance';
       default:
         return 'Administration';
     }
@@ -251,18 +233,6 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           ),
           Row(
             children: [
-              // Bouton Démo rapide si peu de données
-              if (_controller.orders.isEmpty || _controller.products.isEmpty)
-                FilledButton.tonalIcon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFF7ED),
-                    foregroundColor: Colors.deepOrange,
-                  ),
-                  onPressed: () => _confirmSeedDemoData(),
-                  icon: const Icon(Icons.auto_fix_high, size: 18),
-                  label: const Text('Injecter données démo'),
-                ),
-              const SizedBox(width: 16),
               // Profil Admin
               CircleAvatar(
                 radius: 20,
@@ -279,7 +249,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
                   ),
                   const Text(
-                    'Super Admin',
+                    'Admin',
                     style: TextStyle(fontSize: 11, color: Colors.deepOrange, fontWeight: FontWeight.w600),
                   ),
                 ],
@@ -320,7 +290,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.deepOrange.withOpacity(0.3),
+                        color: Colors.deepOrange.withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
                       ),
@@ -377,10 +347,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   'Utilisateurs',
                   badgeText: '${_controller.users.length}',
                 ),
-                _buildSidebarItem(3, Icons.inventory_2_outlined, Icons.inventory_2, 'Catalogue & Produits'),
-                _buildSidebarItem(4, Icons.storefront_outlined, Icons.storefront, 'Boutiques & Vendeurs'),
-                _buildSidebarItem(5, Icons.two_wheeler_outlined, Icons.two_wheeler, 'Flotte Livreurs'),
-                _buildSidebarItem(6, Icons.tune_outlined, Icons.tune, 'Paramètres & Outils'),
+                _buildSidebarItem(3, Icons.storefront_outlined, Icons.storefront, 'Boutiques & Vendeurs'),
+                _buildSidebarItem(4, Icons.two_wheeler_outlined, Icons.two_wheeler, 'Flotte Livreurs'),
               ],
             ),
           ),
@@ -534,10 +502,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   _buildSidebarItem(0, Icons.dashboard_outlined, Icons.dashboard, 'Vue d\'ensemble'),
                   _buildSidebarItem(1, Icons.receipt_long_outlined, Icons.receipt_long, 'Commandes'),
                   _buildSidebarItem(2, Icons.people_alt_outlined, Icons.people_alt, 'Utilisateurs'),
-                  _buildSidebarItem(3, Icons.inventory_2_outlined, Icons.inventory_2, 'Catalogue & Produits'),
-                  _buildSidebarItem(4, Icons.storefront_outlined, Icons.storefront, 'Boutiques & Vendeurs'),
-                  _buildSidebarItem(5, Icons.two_wheeler_outlined, Icons.two_wheeler, 'Flotte Livreurs'),
-                  _buildSidebarItem(6, Icons.tune_outlined, Icons.tune, 'Paramètres & Outils'),
+                  _buildSidebarItem(3, Icons.storefront_outlined, Icons.storefront, 'Boutiques & Vendeurs'),
+                  _buildSidebarItem(4, Icons.two_wheeler_outlined, Icons.two_wheeler, 'Flotte Livreurs'),
                 ],
               ),
             ),
@@ -557,13 +523,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       case 2:
         return _buildUsersTab();
       case 3:
-        return _buildCatalogTab();
-      case 4:
         return _buildVendorsTab();
-      case 5:
+      case 4:
         return _buildCouriersTab();
-      case 6:
-        return _buildSettingsTab();
       default:
         return _buildOverviewTab();
     }
@@ -597,7 +559,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   borderRadius: BorderRadius.circular(18),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.deepOrange.withOpacity(0.25),
+                      color: Colors.deepOrange.withValues(alpha: 0.25),
                       blurRadius: 15,
                       offset: const Offset(0, 6),
                     ),
@@ -632,7 +594,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     Container(
                       padding: EdgeInsets.all(isWide ? 12 : 10),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(Icons.shield_outlined, size: isWide ? 40 : 32, color: Colors.white),
@@ -662,7 +624,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   _buildKpiCard(
                     title: 'Total Commandes',
                     value: '${_controller.totalOrdersCount}',
-                    subtitle: '${_controller.deliveredOrdersCount} livrées • ${_controller.activeOrdersCount} en cours',
+                    subtitle: '${_controller.deliveredOrdersCount} livrées | ${_controller.activeOrdersCount} en cours',
                     icon: Icons.shopping_bag_outlined,
                     accentColor: const Color(0xFF2563EB),
                     isWide: isWide,
@@ -670,15 +632,15 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   _buildKpiCard(
                     title: 'Utilisateurs Actifs',
                     value: '${_controller.users.length}',
-                    subtitle: '${_controller.clients.length} clients • ${_controller.couriers.length} livreurs',
+                    subtitle: '${_controller.clients.length} clients | ${_controller.couriers.length} livreurs',
                     icon: Icons.group_outlined,
                     accentColor: const Color(0xFF059669),
                     isWide: isWide,
                   ),
                   _buildKpiCard(
-                    title: 'Produits au Catalogue',
-                    value: '${_controller.products.length}',
-                    subtitle: '${_controller.vendors.length} boutiques partenaires',
+                    title: 'Boutiques Partenaires',
+                    value: '${_controller.vendors.length}',
+                    subtitle: '${_controller.couriers.length} livreurs enregistrés',
                     icon: Icons.storefront_outlined,
                     accentColor: const Color(0xFF7C3AED),
                     isWide: isWide,
@@ -747,11 +709,6 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                               Icon(Icons.inbox_outlined, size: 48, color: Colors.grey.shade400),
                               const SizedBox(height: 10),
                               const Text('Aucune commande enregistrée pour l\'instant.'),
-                              const SizedBox(height: 10),
-                              FilledButton.tonal(
-                                onPressed: _confirmSeedDemoData,
-                                child: const Text('Générer des commandes de test'),
-                              ),
                             ],
                           ),
                         ),
@@ -839,12 +796,6 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             subtitle: 'Promouvoir ou administrer les comptes',
             onTap: () => _controller.setTab(2),
           ),
-          _buildQuickActionTile(
-            icon: Icons.add_box_outlined,
-            title: 'Ajouter un Produit',
-            subtitle: 'Enrichir le catalogue global',
-            onTap: () => _showAddProductDialog(),
-          ),
         ],
       ),
     );
@@ -866,7 +817,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -895,7 +846,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               Container(
                 padding: EdgeInsets.all(isWide ? 8 : 6),
                 decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.1),
+                  color: accentColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, color: accentColor, size: isWide ? 20 : 16),
@@ -1083,7 +1034,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  '${order.vendorName.isNotEmpty ? order.vendorName : "Boutique"} • ${order.items.length} article(s)',
+                  '${order.vendorName.isNotEmpty ? order.vendorName : "Boutique"} | ${order.items.length} article(s)',
                   style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1536,7 +1487,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           children: [
             CircleAvatar(
               radius: 24,
-              backgroundColor: _roleColor(u.role).withOpacity(0.15),
+              backgroundColor: _roleColor(u.role).withValues(alpha: 0.15),
               child: Text(
                 u.name.isNotEmpty ? u.name[0].toUpperCase() : 'U',
                 style: TextStyle(
@@ -1577,7 +1528,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${u.email} • ${u.phone.isNotEmpty ? u.phone : "Pas de tel"}',
+                    '${u.email} | ${u.phone.isNotEmpty ? u.phone : "Pas de tel"}',
                     style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                   ),
                   if (u.role == UserRole.vendeur && u.shopName.isNotEmpty)
@@ -1592,7 +1543,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
-                        'Véhicule: ${u.vehicleType} • Plaque: ${u.plateNumber}',
+                        'Véhicule: ${u.vehicleType} | Plaque: ${u.plateNumber}',
                         style: const TextStyle(fontSize: 12, color: Color(0xFF0284C7), fontWeight: FontWeight.w500),
                       ),
                     ),
@@ -1600,17 +1551,22 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               ),
             ),
             // Actions utilisateur
-            Row(
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              alignment: WrapAlignment.end,
               children: [
                 OutlinedButton(
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFFE2E8F0)),
                     foregroundColor: const Color(0xFF334155),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   onPressed: () => _showChangeUserRoleDialog(u),
-                  child: const Text('Changer Rôle'),
+                  child: const Text('Rôle', style: TextStyle(fontSize: 12)),
                 ),
-                const SizedBox(width: 8),
                 IconButton(
                   icon: Icon(
                     u.isBlocked ? Icons.lock_open : Icons.block,
@@ -1633,247 +1589,6 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     );
   }
 
-  // =========================================================================
-  // TAB 3 : CATALOGUE & PRODUITS (CATALOG)
-  // =========================================================================
-  Widget _buildCatalogTab() {
-    final filtered = _controller.filteredProducts;
-
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          color: Colors.white,
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _productSearchCtrl,
-                      onChanged: _controller.setProductSearchQuery,
-                      decoration: InputDecoration(
-                        hintText: 'Rechercher un produit, ingrédient, boutique...',
-                        prefixIcon: const Icon(Icons.search, color: Colors.deepOrange),
-                        suffixIcon: _productSearchCtrl.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear),
-                                onPressed: () {
-                                  _productSearchCtrl.clear();
-                                  _controller.setProductSearchQuery('');
-                                },
-                              )
-                            : null,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.deepOrange,
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    icon: const Icon(Icons.add, size: 20),
-                    label: const Text('Nouveau Produit'),
-                    onPressed: _showAddProductDialog,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: _productCategories.map((cat) {
-                    final isSelected = _controller.selectedCategory == cat;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: FilterChip(
-                        label: Text(cat),
-                        selected: isSelected,
-                        selectedColor: const Color(0xFFFFF7ED),
-                        labelStyle: TextStyle(
-                          color: isSelected ? Colors.deepOrange : const Color(0xFF475569),
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                        side: BorderSide(
-                          color: isSelected ? Colors.deepOrange : const Color(0xFFE2E8F0),
-                        ),
-                        checkmarkColor: Colors.deepOrange,
-                        onSelected: (_) => _controller.setProductCategory(cat),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const Divider(height: 1, color: Color(0xFFE2E8F0)),
-
-        Expanded(
-          child: filtered.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.inventory_2_outlined, size: 56, color: Colors.grey.shade400),
-                      const SizedBox(height: 12),
-                      const Text('Aucun produit dans le catalogue.'),
-                      const SizedBox(height: 10),
-                      FilledButton.tonal(
-                        onPressed: _showAddProductDialog,
-                        child: const Text('Ajouter un produit maintenant'),
-                      ),
-                    ],
-                  ),
-                )
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final crossAxisCount = constraints.maxWidth >= 1100 ? 3 : (constraints.maxWidth >= 700 ? 2 : 1);
-                    return GridView.builder(
-                      padding: const EdgeInsets.all(20),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: crossAxisCount,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: 1.5,
-                      ),
-                      itemCount: filtered.length,
-                      itemBuilder: (context, index) {
-                        final product = filtered[index];
-                        return _buildProductCard(product);
-                      },
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProductCard(Product product) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: Color(0xFFE2E8F0)),
-      ),
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF7ED),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFFFEDD5)),
-                  ),
-                  child: const Icon(Icons.fastfood, color: Colors.deepOrange, size: 28),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        product.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A)),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        product.shopName,
-                        style: const TextStyle(fontSize: 12, color: Colors.deepOrange, fontWeight: FontWeight.w500),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          product.category,
-                          style: const TextStyle(fontSize: 10, color: Color(0xFF475569)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  '${product.price.toStringAsFixed(1)} DT',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
-                ),
-              ],
-            ),
-            Text(
-              product.description,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.star, color: Color(0xFFF59E0B), size: 16),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${product.rating}',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.timer_outlined, size: 14, color: Color(0xFF64748B)),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${product.deliveryTimeMinutes} min',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF0284C7)),
-                      tooltip: 'Modifier',
-                      onPressed: () => _showEditProductDialog(product),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444)),
-                      tooltip: 'Supprimer',
-                      onPressed: () => _confirmDeleteProduct(product),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   // =========================================================================
   // TAB 4 : BOUTIQUES & VENDEURS
@@ -1893,9 +1608,29 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 'Boutiques Partenaires (${vendors.length})',
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
               ),
-              Text(
-                'Catalogue global : ${_controller.products.length} articles',
-                style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              Row(
+                children: [
+                  FilledButton.tonalIcon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFFFF7ED),
+                      foregroundColor: Colors.deepOrange,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    icon: const Icon(Icons.sync, size: 16),
+                    label: const Text('Synchroniser table Boutiques', style: TextStyle(fontSize: 12)),
+                    onPressed: () async {
+                      final msg = await _controller.syncAllBoutiques();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    '${_controller.products.length} produit(s) au total',
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1965,7 +1700,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Gérant: ${v.name} • Contact: ${v.phone} • Email: ${v.email}',
+                                'Gérant: ${v.name} | Contact: ${v.phone} | Email: ${v.email}',
                                 style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                               ),
                               const SizedBox(height: 4),
@@ -2117,12 +1852,12 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Téléphone: ${c.phone} • Email: ${c.email}',
+                                'Téléphone: ${c.phone} | Email: ${c.email}',
                                 style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Véhicule: ${c.vehicleType.isNotEmpty ? c.vehicleType : "Non spécifié"} • Immatriculation: ${c.plateNumber.isNotEmpty ? c.plateNumber : "N/A"}',
+                                'Véhicule: ${c.vehicleType.isNotEmpty ? c.vehicleType : "Non spécifié"} | Immatriculation: ${c.plateNumber.isNotEmpty ? c.plateNumber : "N/A"}',
                                 style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
                               ),
                             ],
@@ -2153,154 +1888,6 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 );
               },
             ),
-        ],
-      ),
-    );
-  }
-
-  // =========================================================================
-  // TAB 6 : PARAMÈTRES & OUTILS (SETTINGS & MAINTENANCE)
-  // =========================================================================
-  Widget _buildSettingsTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Configuration de la Plateforme & Maintenance',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-          ),
-          const SizedBox(height: 18),
-
-          // État du Système
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.cloud_done, color: Color(0xFF10B981)),
-                    SizedBox(width: 10),
-                    Text(
-                      'Statut de connexion Firebase',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Firestore et Firebase Auth sont synchronisés en temps réel. Toutes les modifications apportées par les clients, vendeurs et livreurs sont répercutées instantanément.',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
-                ),
-                const Divider(height: 24, color: Color(0xFFE2E8F0)),
-                Row(
-                  children: [
-                    const Text('Taux de commission plateforme par défaut :', style: TextStyle(fontWeight: FontWeight.w500)),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF7ED),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text('10%', style: TextStyle(color: Colors.deepOrange, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Générateur de Données Démo
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.auto_fix_high, color: Colors.deepOrange),
-                    SizedBox(width: 10),
-                    Text(
-                      'Outil d\'Injection de Données Démo',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Crée automatiquement des utilisateurs types (clients, livreurs avec véhicules, vendeurs avec boutiques), des produits savoureux et des commandes d\'exemple avec différents statuts pour tester l\'ensemble de l\'écosystème.',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
-                ),
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.deepOrange,
-                  ),
-                  icon: const Icon(Icons.playlist_add),
-                  label: const Text('Injecter les Données Démo'),
-                  onPressed: _confirmSeedDemoData,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Informations Profil Super-Admin
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.shield, color: Colors.deepOrange),
-                    SizedBox(width: 10),
-                    Text(
-                      'Profil Administrateur Actuel',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Text('Nom: ${widget.user.name}'),
-                const SizedBox(height: 4),
-                Text('Email: ${widget.user.email}'),
-                const SizedBox(height: 4),
-                Text('Téléphone: ${widget.user.phone}'),
-                const SizedBox(height: 4),
-                Text('UID Firestore: ${widget.user.uid}'),
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFDC2626),
-                    side: const BorderSide(color: Color(0xFFFCA5A5)),
-                  ),
-                  icon: const Icon(Icons.logout, size: 18),
-                  label: const Text('Se déconnecter'),
-                  onPressed: _showLogoutDialog,
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -2451,7 +2038,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   child: Icon(Icons.two_wheeler, color: Colors.deepOrange),
                 ),
                 title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('${c.phone} • ${c.vehicleType}'),
+                subtitle: Text('${c.phone} | ${c.vehicleType}'),
                 onTap: () async {
                   Navigator.pop(ctx);
                   await _controller.assignCourier(
@@ -2521,182 +2108,6 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     );
   }
 
-  void _showAddProductDialog() {
-    final nameCtrl = TextEditingController();
-    final descCtrl = TextEditingController();
-    final priceCtrl = TextEditingController();
-    final shopCtrl = TextEditingController(text: 'Boutique Partenaire');
-    String selectedCat = 'Plats';
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setStateModal) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Ajouter un Produit au Catalogue'),
-          content: SizedBox(
-            width: 450,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: const InputDecoration(labelText: 'Nom du Produit', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: descCtrl,
-                    decoration: const InputDecoration(labelText: 'Description / Ingrédients', border: OutlineInputBorder()),
-                    maxLines: 2,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: priceCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Prix (DT)', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: shopCtrl,
-                    decoration: const InputDecoration(labelText: 'Nom de la Boutique', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: selectedCat,
-                    decoration: const InputDecoration(labelText: 'Catégorie', border: OutlineInputBorder()),
-                    items: _productCategories
-                        .where((c) => c != 'Tous')
-                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) setStateModal(() => selectedCat = v);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: Colors.deepOrange),
-              onPressed: () async {
-                final price = double.tryParse(priceCtrl.text) ?? 0.0;
-                if (nameCtrl.text.isEmpty || price <= 0) {
-                  return;
-                }
-                Navigator.pop(ctx);
-                final newProduct = Product(
-                  id: '',
-                  name: nameCtrl.text.trim(),
-                  description: descCtrl.text.trim(),
-                  price: price,
-                  category: selectedCat,
-                  shopName: shopCtrl.text.trim().isNotEmpty ? shopCtrl.text.trim() : 'Boutique Partenaire',
-                  rating: 5.0,
-                  deliveryTimeMinutes: 25,
-                );
-                await _controller.addProduct(newProduct);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Produit ajouté avec succès !')),
-                  );
-                }
-              },
-              child: const Text('Ajouter'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showEditProductDialog(Product product) {
-    final nameCtrl = TextEditingController(text: product.name);
-    final descCtrl = TextEditingController(text: product.description);
-    final priceCtrl = TextEditingController(text: product.price.toString());
-    final shopCtrl = TextEditingController(text: product.shopName);
-    String selectedCat = _productCategories.contains(product.category) ? product.category : 'Plats';
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setStateModal) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Modifier le Produit'),
-          content: SizedBox(
-            width: 450,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: const InputDecoration(labelText: 'Nom du Produit', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: descCtrl,
-                    decoration: const InputDecoration(labelText: 'Description', border: OutlineInputBorder()),
-                    maxLines: 2,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: priceCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Prix (DT)', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: shopCtrl,
-                    decoration: const InputDecoration(labelText: 'Nom de la Boutique', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: selectedCat,
-                    decoration: const InputDecoration(labelText: 'Catégorie', border: OutlineInputBorder()),
-                    items: _productCategories
-                        .where((c) => c != 'Tous')
-                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) setStateModal(() => selectedCat = v);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: Colors.deepOrange),
-              onPressed: () async {
-                final price = double.tryParse(priceCtrl.text) ?? product.price;
-                Navigator.pop(ctx);
-                final updated = product.copyWith(
-                  name: nameCtrl.text.trim(),
-                  description: descCtrl.text.trim(),
-                  price: price,
-                  category: selectedCat,
-                  shopName: shopCtrl.text.trim(),
-                );
-                await _controller.updateProduct(updated);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Produit mis à jour.')),
-                  );
-                }
-              },
-              child: const Text('Enregistrer'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _confirmDeleteOrder(OrderModel order) {
     showDialog(
       context: context,
@@ -2724,7 +2135,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Supprimer l\'Utilisateur'),
+        title: const Text("Supprimer l'Utilisateur"),
         content: Text('Voulez-vous supprimer le profil de ${u.name} (${u.email}) ?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
@@ -2735,57 +2146,6 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               await _controller.deleteUser(u.uid);
             },
             child: const Text('Supprimer'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _confirmDeleteProduct(Product p) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Supprimer le Produit'),
-        content: Text('Supprimer "${p.name}" du catalogue ?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await _controller.deleteProduct(p.id);
-            },
-            child: const Text('Supprimer'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _confirmSeedDemoData() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Injecter les Données Démo'),
-        content: const Text(
-          'Cette action va injecter des produits de référence, des commandes d\'exemple et des profils livreur/vendeur dans Firestore pour tester l\'application en conditions réelles.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.deepOrange),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await _controller.seedPlatformDemoData();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Données de démonstration injectées avec succès !')),
-                );
-              }
-            },
-            child: const Text('Confirmer l\'injection'),
           ),
         ],
       ),

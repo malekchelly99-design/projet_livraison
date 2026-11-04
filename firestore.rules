@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // 1. Table Utilisateurs (users)
+    // Contient : clients, vendeurs, livreurs, admins
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // 2. Table Produits (products)
+    // Contient le catalogue des articles proposés par les vendeurs
+    match /products/{productId} {
+      allow read: if true;
+      allow create, update, delete: if isAuthenticated();
+    }
+
+    // 3. Table Commandes (orders)
+    // Contient les commandes des clients, préparées par les vendeurs et livrées par les livreurs
+    match /orders/{orderId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // 4. Table Catégories (categories)
+    // Contient les catégories de commerces et de produits
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // 5. Table Paramètres de la Plateforme (settings)
+    // Paramètres généraux (frais de livraison de base, commission, état maintenance)
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // 6. Table Boutiques (boutiques)
+    // Fiches détaillées des commerces et restaurants enregistrées lors de l'inscription des vendeurs
+    match /boutiques/{boutiqueId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+  }
+}
+

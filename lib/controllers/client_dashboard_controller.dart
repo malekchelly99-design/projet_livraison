@@ -6,21 +6,26 @@ import '../models/order_model.dart';
 import '../models/product.dart';
 import '../services/catalog_service.dart';
 import '../services/order_service.dart';
+import '../services/user_service.dart';
 import 'base_controller.dart';
 
 class ClientDashboardController extends BaseController {
   final CatalogService _catalogService;
   final OrderService _orderService;
+  final UserService _userService;
 
   ClientDashboardController({
     CatalogService? catalogService,
     OrderService? orderService,
+    UserService? userService,
   })  : _catalogService = catalogService ?? CatalogService(),
-        _orderService = orderService ?? OrderService() {
+        _orderService = orderService ?? OrderService(),
+        _userService = userService ?? UserService() {
     _initCatalog();
   }
 
   // --- NAVIGATION ONGLETS ---
+  // 0: Accueil/Dashboard, 1: Catalogue & Produits, 2: Boutiques, 3: Panier/Checkout, 4: Commandes, 5: Profil
   int _currentTab = 0;
   int get currentTab => _currentTab;
 
@@ -35,9 +40,11 @@ class ClientDashboardController extends BaseController {
   List<Product> _allProducts = CatalogService.defaultProducts;
   StreamSubscription<List<Product>>? _catalogSub;
   String _selectedCategory = 'Tous';
+  String? _selectedShopName;
   String _searchQuery = '';
 
   String get selectedCategory => _selectedCategory;
+  String? get selectedShopName => _selectedShopName;
   String get searchQuery => _searchQuery;
 
   void _initCatalog() {
@@ -52,6 +59,11 @@ class ClientDashboardController extends BaseController {
     notifyListeners();
   }
 
+  void setSelectedShop(String? shopName) {
+    _selectedShopName = shopName;
+    notifyListeners();
+  }
+
   void setSearchQuery(String query) {
     _searchQuery = query.trim().toLowerCase();
     notifyListeners();
@@ -60,12 +72,15 @@ class ClientDashboardController extends BaseController {
   List<Product> get filteredProducts {
     return _allProducts.where((p) {
       final matchesCategory =
-          _selectedCategory == 'Tous' || p.category == _selectedCategory;
+          _selectedCategory == 'Tous' || _selectedCategory == 'Toutes' || p.category.toLowerCase() == _selectedCategory.toLowerCase();
+      final matchesShop = _selectedShopName == null ||
+          _selectedShopName!.isEmpty ||
+          p.shopName.toLowerCase() == _selectedShopName!.toLowerCase();
       final matchesSearch = _searchQuery.isEmpty ||
           p.name.toLowerCase().contains(_searchQuery) ||
           p.description.toLowerCase().contains(_searchQuery) ||
           p.shopName.toLowerCase().contains(_searchQuery);
-      return matchesCategory && matchesSearch;
+      return matchesCategory && matchesShop && matchesSearch;
     }).toList();
   }
 
@@ -145,13 +160,27 @@ class ClientDashboardController extends BaseController {
   }
 
   // --- PROCESSUS DE COMMANDE (CHECKOUT) ---
-  final TextEditingController addressCtrl =
-      TextEditingController(text: '15 Avenue Habib Bourguiba, Tunis');
+  final TextEditingController addressCtrl = TextEditingController();
+  final TextEditingController phoneCtrl = TextEditingController();
   final TextEditingController notesCtrl = TextEditingController();
   String selectedPaymentMethod = 'Paiement en espèces à la livraison';
 
   bool _isSubmittingOrder = false;
   bool get isSubmittingOrder => _isSubmittingOrder;
+
+  void initUserInfo(AppUser user) {
+    if (addressCtrl.text.isEmpty) {
+      final userAddress = (user.profile['address'] as String?) ??
+          (user.profile['city'] as String?) ??
+          '';
+      if (userAddress.isNotEmpty) {
+        addressCtrl.text = userAddress;
+      }
+    }
+    if (phoneCtrl.text.isEmpty && user.phone.isNotEmpty) {
+      phoneCtrl.text = user.phone;
+    }
+  }
 
   Future<String?> placeOrder(AppUser user) async {
     if (_cart.isEmpty) {
@@ -163,22 +192,32 @@ class ClientDashboardController extends BaseController {
       return 'Veuillez renseigner votre adresse de livraison.';
     }
 
+    final phone = phoneCtrl.text.trim().isNotEmpty ? phoneCtrl.text.trim() : user.phone;
+    if (phone.isEmpty) {
+      return 'Veuillez renseigner un numéro de téléphone pour le livreur.';
+    }
+
     _isSubmittingOrder = true;
     notifyListeners();
 
     try {
+      final firstProduct = _cart.values.isNotEmpty ? _cart.values.first.product : null;
+      final vendorName = firstProduct?.shopName ?? '';
+
       final order = OrderModel(
         id: '',
         clientId: user.uid,
         clientName: user.name.isNotEmpty ? user.name : 'Client',
-        clientPhone: user.phone,
+        clientPhone: phone,
         deliveryAddress: address,
+        vendorName: vendorName,
         items: _cart.values
             .map((item) => OrderItem(
                   productId: item.product.id,
                   name: item.product.name,
                   price: item.product.price,
                   quantity: item.quantity,
+                  shopName: item.product.shopName,
                 ))
             .toList(),
         subtotal: subtotal,
@@ -196,8 +235,6 @@ class ClientDashboardController extends BaseController {
       clearCart();
       notesCtrl.clear();
       _isSubmittingOrder = false;
-      _currentTab = 2; // redirection automatique vers l'onglet "Commandes"
-      notifyListeners();
       return null;
     } catch (e) {
       _isSubmittingOrder = false;
@@ -215,10 +252,31 @@ class ClientDashboardController extends BaseController {
     await _orderService.updateStatus(orderId, OrderStatus.cancelled);
   }
 
+  // --- PROFIL ---
+  Future<bool> updateProfile(String uid, {
+    required String name,
+    required String phone,
+    required String address,
+    required String city,
+  }) async {
+    try {
+      await _userService.updateProfile(uid, {
+        'name': name,
+        'phone': phone,
+        'profile.address': address,
+        'profile.city': city,
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
   void dispose() {
     _catalogSub?.cancel();
     addressCtrl.dispose();
+    phoneCtrl.dispose();
     notesCtrl.dispose();
     super.dispose();
   }

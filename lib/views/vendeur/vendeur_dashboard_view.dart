@@ -861,7 +861,7 @@ class _VendeurDashboardViewState extends State<VendeurDashboardView> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${order.clientName} • ${order.items.length} article(s) • ${order.deliveryAddress}',
+                  '${order.clientName} | ${order.items.length} article(s) | ${order.deliveryAddress}',
                   style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                 ),
               ],
@@ -1383,7 +1383,7 @@ class _VendeurDashboardViewState extends State<VendeurDashboardView> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('• ${item.name} x${item.quantity}', style: const TextStyle(fontSize: 13)),
+                      Text('- ${item.name} x${item.quantity}', style: const TextStyle(fontSize: 13)),
                       Text('${(item.price * item.quantity).toStringAsFixed(2)} DT', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                     ],
                   ),
@@ -1607,7 +1607,7 @@ class _VendeurDashboardViewState extends State<VendeurDashboardView> {
                 ListTile(
                   leading: const CircleAvatar(child: Icon(Icons.person)),
                   title: Text(widget.user.name.isNotEmpty ? widget.user.name : 'Vendeur Partenaire'),
-                  subtitle: Text('${widget.user.email} • ${widget.user.phone}'),
+                  subtitle: Text('${widget.user.email} | ${widget.user.phone}'),
                 ),
               ],
             ),

@@ -668,37 +668,13 @@ class _LivreurDashboardViewState extends State<LivreurDashboardView> {
                     const SizedBox(height: 28),
                   ],
 
-                  // Raccourcis et Démo Helper
-                  // (Wrap au lieu de Row : évite le débordement sur mobile)
-                  Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    runSpacing: 4,
-                    children: [
-                      const Text(
-                        'Actions rapides',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      TextButton.icon(
-                        icon: const Icon(Icons.add_task),
-                        label: const Text(
-                          'Générer des commandes de test (Démo)',
-                        ),
-                        onPressed: () async {
-                          final err = await _controller.seedDemoOrders();
-                          if (err != null) {
-                            _showSnack(err, isError: true);
-                          } else {
-                            _showSnack(
-                              'Commandes de test créées avec succès !',
-                            );
-                          }
-                        },
-                      ),
-                    ],
+                  // Actions rapides
+                  const Text(
+                    'Actions rapides',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Wrap(
@@ -833,7 +809,7 @@ class _LivreurDashboardViewState extends State<LivreurDashboardView> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        'COURSE ACTIVE • ${order.status.label.toUpperCase()}',
+                        'COURSE ACTIVE | ${order.status.label.toUpperCase()}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -955,15 +931,6 @@ class _LivreurDashboardViewState extends State<LivreurDashboardView> {
                           setState(() => _searchFilter = val.trim()),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  FilledButton.tonalIcon(
-                    icon: const Icon(Icons.add),
-                    label: const Text('Ajouter démo'),
-                    onPressed: () async {
-                      await _controller.seedDemoOrders();
-                      _showSnack('Commandes de démonstration ajoutées !');
-                    },
-                  ),
                 ],
               ),
 
@@ -1011,17 +978,6 @@ class _LivreurDashboardViewState extends State<LivreurDashboardView> {
                           fontSize: 13,
                         ),
                         textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 20),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.add_shopping_cart),
-                        label: const Text(
-                          'Générer des commandes de test pour tester',
-                        ),
-                        onPressed: () async {
-                          await _controller.seedDemoOrders();
-                          _showSnack('Commandes créées !');
-                        },
                       ),
                     ],
                   ),

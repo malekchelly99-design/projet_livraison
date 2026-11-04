@@ -29,6 +29,8 @@ class _RegisterViewState extends State<RegisterView> {
   final _shopNameCtrl = TextEditingController();
   final _shopAddressCtrl = TextEditingController();
   final _taxIdCtrl = TextEditingController();
+  final _descriptionCtrl = TextEditingController();
+  final _hoursCtrl = TextEditingController(text: '08:00 - 22:00');
 
   // Livreur
   final _cinCtrl = TextEditingController();
@@ -40,8 +42,8 @@ class _RegisterViewState extends State<RegisterView> {
   void dispose() {
     for (final c in [
       _nameCtrl, _phoneCtrl, _emailCtrl, _passwordCtrl, _confirmCtrl,
-      _cityCtrl, _shopNameCtrl, _shopAddressCtrl, _taxIdCtrl, _cinCtrl,
-      _plateCtrl,
+      _cityCtrl, _shopNameCtrl, _shopAddressCtrl, _taxIdCtrl,
+      _descriptionCtrl, _hoursCtrl, _cinCtrl, _plateCtrl,
     ]) {
       c.dispose();
     }
@@ -60,6 +62,8 @@ class _RegisterViewState extends State<RegisterView> {
       shopName: _shopNameCtrl.text,
       shopAddress: _shopAddressCtrl.text,
       taxId: _taxIdCtrl.text,
+      description: _descriptionCtrl.text,
+      horaires: _hoursCtrl.text.trim().isNotEmpty ? _hoursCtrl.text.trim() : '08:00 - 22:00',
       cin: _cinCtrl.text,
       plate: _plateCtrl.text,
     );
@@ -189,6 +193,19 @@ class _RegisterViewState extends State<RegisterView> {
           icon: Icons.location_city_outlined,
           capitalization: TextCapitalization.words,
           validator: Validators.required,
+        ),
+        AppTextField(
+          controller: _descriptionCtrl,
+          label: 'Description / Spécialité (optionnel)',
+          hint: 'Ex: Pizzas au feu de bois, burgers gourmets...',
+          icon: Icons.description_outlined,
+          capitalization: TextCapitalization.sentences,
+        ),
+        AppTextField(
+          controller: _hoursCtrl,
+          label: "Horaires d'ouverture",
+          hint: 'Ex: 08:00 - 22:00',
+          icon: Icons.access_time_outlined,
         ),
         AppTextField(
           controller: _taxIdCtrl,

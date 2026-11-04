@@ -4,6 +4,7 @@ import '../models/app_user.dart';
 import '../models/order_model.dart';
 import '../models/product.dart';
 import '../models/user_role.dart';
+import '../services/boutique_service.dart';
 import '../services/catalog_service.dart';
 import '../services/order_service.dart';
 import '../services/user_service.dart';
@@ -14,6 +15,7 @@ class AdminDashboardController extends BaseController {
   final UserService _userService;
   final OrderService _orderService;
   final CatalogService _catalogService;
+  final BoutiqueService _boutiqueService;
 
   StreamSubscription<List<AppUser>>? _usersSub;
   StreamSubscription<List<OrderModel>>? _ordersSub;
@@ -51,21 +53,16 @@ class AdminDashboardController extends BaseController {
   String _userSearchQuery = '';
   String get userSearchQuery => _userSearchQuery;
 
-  // Filtres Catalogue
-  String _selectedCategory = 'Tous';
-  String get selectedCategory => _selectedCategory;
-
-  String _productSearchQuery = '';
-  String get productSearchQuery => _productSearchQuery;
-
   AdminDashboardController({
     required this.user,
     UserService? userService,
     OrderService? orderService,
     CatalogService? catalogService,
+    BoutiqueService? boutiqueService,
   })  : _userService = userService ?? UserService(),
         _orderService = orderService ?? OrderService(),
-        _catalogService = catalogService ?? CatalogService() {
+        _catalogService = catalogService ?? CatalogService(),
+        _boutiqueService = boutiqueService ?? BoutiqueService() {
     _initSubscriptions();
   }
 
@@ -141,16 +138,6 @@ class AdminDashboardController extends BaseController {
     notifyListeners();
   }
 
-  void setProductCategory(String category) {
-    _selectedCategory = category;
-    notifyListeners();
-  }
-
-  void setProductSearchQuery(String query) {
-    _productSearchQuery = query.trim().toLowerCase();
-    notifyListeners();
-  }
-
   // Listes filtrées
   List<OrderModel> get filteredOrders {
     return _orders.where((order) {
@@ -183,24 +170,6 @@ class AdminDashboardController extends BaseController {
         final phoneMatch = u.phone.toLowerCase().contains(_userSearchQuery);
         final shopMatch = u.shopName.toLowerCase().contains(_userSearchQuery);
         if (!nameMatch && !emailMatch && !phoneMatch && !shopMatch) {
-          return false;
-        }
-      }
-      return true;
-    }).toList();
-  }
-
-  List<Product> get filteredProducts {
-    return _products.where((p) {
-      if (_selectedCategory != 'Tous' &&
-          p.category.toLowerCase() != _selectedCategory.toLowerCase()) {
-        return false;
-      }
-      if (_productSearchQuery.isNotEmpty) {
-        final nameMatch = p.name.toLowerCase().contains(_productSearchQuery);
-        final descMatch = p.description.toLowerCase().contains(_productSearchQuery);
-        final shopMatch = p.shopName.toLowerCase().contains(_productSearchQuery);
-        if (!nameMatch && !descMatch && !shopMatch) {
           return false;
         }
       }
@@ -276,156 +245,58 @@ class AdminDashboardController extends BaseController {
     await _userService.deleteUser(uid);
   }
 
-  Future<void> addProduct(Product product) async {
-    await _catalogService.addProduct(product);
-  }
-
-  Future<void> updateProduct(Product product) async {
-    await _catalogService.updateProduct(product);
-  }
-
-  Future<void> deleteProduct(String productId) async {
-    await _catalogService.deleteProduct(productId);
-  }
-
-  /// Génération de données de test complètes si la base est vide
-  Future<void> seedPlatformDemoData() async {
+  /// Purge complète de toutes les données démo / test de la base de données.
+  Future<String> purgeAllDemoData() async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      final db = FirebaseFirestore.instance;
+      final ordersPurged = await _orderService.purgeDemoOrders();
+      final usersPurged = await _userService.purgeDemoUsers();
+      final productsPurged = await _catalogService.purgeDemoProducts();
 
-      // 1. Démo Produits
-      final demoProducts = [
-        const Product(
-          id: '',
-          name: 'Burger Gourmet Signature',
-          description: 'Steak pur boeuf 180g, cheddar affiné, sauce maison, frites croustillantes.',
-          price: 18.5,
-          category: 'Plats',
-          shopName: 'Le Gourmet Burger',
-          rating: 4.9,
-          deliveryTimeMinutes: 20,
-          isPopular: true,
-          imageUrl: '',
-        ),
-        const Product(
-          id: '',
-          name: 'Pizza Truffe & Mozzarella di Bufala',
-          description: 'Crème de truffe, mozzarella fraîche, roquette, copeaux de parmesan.',
-          price: 24.0,
-          category: 'Pizzas',
-          shopName: 'Pizzeria Bella Napoli',
-          rating: 4.8,
-          deliveryTimeMinutes: 25,
-          isPopular: true,
-          imageUrl: '',
-        ),
-        const Product(
-          id: '',
-          name: 'Sandwich Poulet Braisé Croustillant',
-          description: 'Poulet mariné, salade croquante, tomates fraîches, sauce piquante.',
-          price: 9.5,
-          category: 'Sandwiches',
-          shopName: 'Snack L\'Express',
-          rating: 4.6,
-          deliveryTimeMinutes: 15,
-          isPopular: false,
-          imageUrl: '',
-        ),
-        const Product(
-          id: '',
-          name: 'Tacos 3 Viandes XL',
-          description: 'Cordon bleu, tenders maison, viande hachée, sauce fromagère.',
-          price: 14.0,
-          category: 'Plats',
-          shopName: 'Tacos Master',
-          rating: 4.7,
-          deliveryTimeMinutes: 20,
-          isPopular: true,
-          imageUrl: '',
-        ),
-        const Product(
-          id: '',
-          name: 'Plateau Pâtisserie Gourmande',
-          description: 'Assortiment de 6 mini-éclairs et 4 tartelettes framboises.',
-          price: 16.0,
-          category: 'Desserts',
-          shopName: 'Boulangerie Gourmet',
-          rating: 4.9,
-          deliveryTimeMinutes: 30,
-          isPopular: true,
-          imageUrl: '',
-        ),
-      ];
-
-      for (final p in demoProducts) {
-        await db.collection('products').add(p.toMap());
-      }
-
-      // 2. Démo Commandes via OrderService
-      await _orderService.createDemoOrders();
-
-      // 3. Démo Utilisateurs supplémentaires si la collection users en a peu
-      final demoUsers = [
-        {
-          'uid': 'demo_courier_ali',
-          'name': 'Ali Ben Salah',
-          'email': 'ali.livreur@livraison.com',
-          'phone': '+216 98 444 333',
-          'role': 'livreur',
-          'profile': {
-            'vehicleType': 'Scooter Yamaha 125',
-            'plateNumber': 'TN 204-5891',
-            'city': 'Tunis Centre',
-            'isBlocked': false,
-          },
-          'isAvailable': true,
-          'createdAt': FieldValue.serverTimestamp(),
-        },
-        {
-          'uid': 'demo_courier_karim',
-          'name': 'Karim Gharbi',
-          'email': 'karim.livreur@livraison.com',
-          'phone': '+216 22 777 666',
-          'role': 'livreur',
-          'profile': {
-            'vehicleType': 'Moto Honda CBF',
-            'plateNumber': 'TN 198-1122',
-            'city': 'Ariana',
-            'isBlocked': false,
-          },
-          'isAvailable': true,
-          'createdAt': FieldValue.serverTimestamp(),
-        },
-        {
-          'uid': 'demo_vendor_napoli',
-          'name': 'Marco Bellini',
-          'email': 'contact@bellanapoli.tn',
-          'phone': '+216 71 222 333',
-          'role': 'vendeur',
-          'profile': {
-            'shopName': 'Pizzeria Bella Napoli',
-            'category': 'Pizzas & Italien',
-            'address': '12 Rue de la Marsa, Tunis',
-            'city': 'Tunis',
-            'taxId': '14589632/A/P/000',
-            'isBlocked': false,
-          },
-          'createdAt': FieldValue.serverTimestamp(),
-        },
-      ];
-
-      for (final u in demoUsers) {
-        await db.collection('users').doc(u['uid'] as String).set(u, SetOptions(merge: true));
-      }
-
+      _errorMessage = null;
+      return '$ordersPurged commande(s), $usersPurged utilisateur(s) et $productsPurged produit(s) démo purgés de la base.';
     } catch (e) {
-      _errorMessage = 'Erreur lors de l\'injection des données: $e';
+      _errorMessage = 'Erreur lors du nettoyage : $e';
+      return 'Erreur : $e';
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Initialise les tables et catégories par défaut dans Firestore.
+  Future<void> ensureDefaultCategories() async {
+    await _catalogService.ensureDefaultCategories();
+  }
+
+  /// Synchronise tous les vendeurs existants dans la collection 'boutiques'.
+  Future<String> syncAllBoutiques() async {
+    int count = 0;
+    try {
+      for (final v in vendors) {
+        final profile = v.profile;
+        await _boutiqueService.sync(
+          vendeurId: v.uid,
+          nomBoutique: v.shopName.isNotEmpty
+              ? v.shopName
+              : (v.name.isNotEmpty ? 'Boutique ${v.name}' : 'Boutique'),
+          categorie: (profile['category'] as String?) ?? 'Restaurant',
+          adresse: (profile['address'] as String?) ?? (profile['city'] as String?) ?? 'Tunis',
+          ville: (profile['city'] as String?) ?? 'Tunis',
+          matriculeFiscale: (profile['taxId'] as String?) ?? '',
+          nomResponsable: v.name,
+          email: v.email,
+          telephone: v.phone,
+          description: (profile['description'] as String?) ?? '',
+          horaires: (profile['horaires'] as String?) ?? '08:00 - 22:00',
+        );
+        count++;
+      }
+      return '$count boutique(s) synchronisée(s) avec succès dans la table boutiques.';
+    } catch (e) {
+      return 'Erreur de synchronisation : $e';
     }
   }
 

@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import '../core/auth_errors.dart';
 import '../models/app_user.dart';
 import '../models/profiles.dart';
 import '../models/user_role.dart';
 import '../services/auth_service.dart';
+import '../services/boutique_service.dart';
 import '../services/user_service.dart';
 import 'base_controller.dart';
 
@@ -22,10 +24,15 @@ class RegisterController extends BaseController {
 
   final AuthService _auth;
   final UserService _users;
+  final BoutiqueService _boutiques;
 
-  RegisterController({AuthService? auth, UserService? users})
-      : _auth = auth ?? AuthService(),
-        _users = users ?? UserService();
+  RegisterController({
+    AuthService? auth,
+    UserService? users,
+    BoutiqueService? boutiques,
+  })  : _auth = auth ?? AuthService(),
+        _users = users ?? UserService(),
+        _boutiques = boutiques ?? BoutiqueService();
 
   UserRole _role = UserRole.client;
   String? _shopCategory;
@@ -68,6 +75,8 @@ class RegisterController extends BaseController {
     String shopName = '',
     String shopAddress = '',
     String taxId = '',
+    String description = '',
+    String horaires = '08:00 - 22:00',
     String cin = '',
     String plate = '',
   }) async {
@@ -82,7 +91,8 @@ class RegisterController extends BaseController {
         email: email,
         password: password,
       );
-      await _users.create(AppUser(
+
+      final appUser = AppUser(
         uid: uid,
         name: name.trim(),
         email: email.trim(),
@@ -93,12 +103,57 @@ class RegisterController extends BaseController {
           shopName: shopName,
           shopAddress: shopAddress,
           taxId: taxId,
+          description: description,
+          horaires: horaires,
           cin: cin,
           plate: plate,
         ),
-      ));
+      );
+
+      await _users.create(appUser);
+
+      // Vendeur : on enregistre tous les attributs de la boutique
+      // dans la collection / table `boutiques` de Firestore.
+      if (_role == UserRole.vendeur) {
+        try {
+          await _boutiques.create(
+            vendeurId: uid,
+            nomBoutique: shopName.trim().isNotEmpty
+                ? shopName.trim()
+                : (name.trim().isNotEmpty ? 'Boutique $name' : 'Boutique'),
+            categorie: _shopCategory,
+            adresse: shopAddress,
+            ville: city,
+            matriculeFiscale: taxId,
+            nomResponsable: name,
+            email: email,
+            telephone: phone,
+            description: description,
+            horaires: horaires,
+          );
+        } catch (errBoutique) {
+          debugPrint('Avertissement création boutique Firestore: $errBoutique');
+          // Tentative de secours avec sync
+          try {
+            await _boutiques.sync(
+              vendeurId: uid,
+              nomBoutique: shopName,
+              categorie: _shopCategory,
+              adresse: shopAddress,
+              ville: city,
+              matriculeFiscale: taxId,
+              nomResponsable: name,
+              email: email,
+              telephone: phone,
+              description: description,
+              horaires: horaires,
+            );
+          } catch (_) {}
+        }
+      }
       return null;
     } catch (e) {
+      debugPrint('Erreur lors de l\'inscription: $e');
       return authErrorMessage(e);
     } finally {
       _loading = false;
@@ -111,6 +166,8 @@ class RegisterController extends BaseController {
     required String shopName,
     required String shopAddress,
     required String taxId,
+    String description = '',
+    String horaires = '08:00 - 22:00',
     required String cin,
     required String plate,
   }) {
@@ -122,6 +179,8 @@ class RegisterController extends BaseController {
           address: shopAddress.trim(),
           city: city.trim(),
           taxId: taxId.trim(),
+          description: description.trim(),
+          horaires: horaires.trim(),
         ).toMap();
       case UserRole.livreur:
         return CourierProfile(

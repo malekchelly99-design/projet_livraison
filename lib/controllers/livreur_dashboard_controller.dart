@@ -144,21 +144,6 @@ class LivreurDashboardController extends BaseController {
     }
   }
 
-  // --- GÉNÉRATION DE DONNÉES DE TEST / DÉMONSTRATION ---
-  Future<String?> seedDemoOrders() async {
-    _isProcessing = true;
-    notifyListeners();
-    try {
-      await _orderService.createDemoOrders();
-      _isProcessing = false;
-      notifyListeners();
-      return null;
-    } catch (e) {
-      _isProcessing = false;
-      notifyListeners();
-      return 'Erreur d\'ajout : $e';
-    }
-  }
 
   // --- MISE À JOUR DU PROFIL DU LIVREUR (Section 8) ---
   Future<String?> updateProfile({
