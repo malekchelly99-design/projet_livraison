@@ -5,6 +5,7 @@ class Product {
   final double price;
   final String category;
   final String shopName;
+  final String? boutiqueId; // Link to boutique document ID (vendeur UID)
   final double rating;
   final int deliveryTimeMinutes;
   final bool isPopular;
@@ -18,6 +19,7 @@ class Product {
     required this.price,
     required this.category,
     required this.shopName,
+    this.boutiqueId,
     this.rating = 4.8,
     this.deliveryTimeMinutes = 25,
     this.isPopular = false,
@@ -33,6 +35,7 @@ class Product {
       price: (data['price'] as num?)?.toDouble() ?? 0.0,
       category: (data['category'] as String?) ?? 'Général',
       shopName: (data['shopName'] as String?) ?? 'Boutique Partenaire',
+      boutiqueId: data['boutiqueId'] as String?,
       rating: (data['rating'] as num?)?.toDouble() ?? 4.8,
       deliveryTimeMinutes: (data['deliveryTimeMinutes'] as num?)?.toInt() ?? 25,
       isPopular: (data['isPopular'] as bool?) ?? false,
@@ -48,6 +51,7 @@ class Product {
     double? price,
     String? category,
     String? shopName,
+    String? boutiqueId,
     double? rating,
     int? deliveryTimeMinutes,
     bool? isPopular,
@@ -61,6 +65,7 @@ class Product {
       price: price ?? this.price,
       category: category ?? this.category,
       shopName: shopName ?? this.shopName,
+      boutiqueId: boutiqueId ?? this.boutiqueId,
       rating: rating ?? this.rating,
       deliveryTimeMinutes: deliveryTimeMinutes ?? this.deliveryTimeMinutes,
       isPopular: isPopular ?? this.isPopular,
@@ -75,6 +80,7 @@ class Product {
         'price': price,
         'category': category,
         'shopName': shopName,
+        if (boutiqueId != null) 'boutiqueId': boutiqueId,
         'rating': rating,
         'deliveryTimeMinutes': deliveryTimeMinutes,
         'isPopular': isPopular,

@@ -6,14 +6,16 @@ import 'package:flutter/foundation.dart'
 
 /// Default [FirebaseOptions] for use with your Firebase apps.
 ///
-/// Example:
-/// ```dart
-/// import 'firebase_options.dart';
-/// // ...
-/// await Firebase.initializeApp(
-///   options: DefaultFirebaseOptions.currentPlatform,
-/// );
-/// ```
+/// Configuration pour votre nouvelle base de données Firebase.
+/// 
+/// Pour configurer Firebase:
+/// 1. Créez un nouveau projet sur https://console.firebase.google.com/
+/// 2. Installez FlutterFire CLI: dart pub global activate flutterfire_cli
+/// 3. Configurez Firebase: flutterfire configure
+/// 4. Activez Authentication (Email/Password) dans la console Firebase
+/// 5. Créez une base de données Firestore en mode production
+///
+/// OU remplacez manuellement les valeurs ci-dessous avec vos clés Firebase
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {

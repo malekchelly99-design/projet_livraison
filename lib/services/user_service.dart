@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/app_user.dart';
+import '../models/user_role.dart';
 
 /// Accès à la collection Firestore `users`.
 class UserService {
@@ -11,6 +12,10 @@ class UserService {
   CollectionReference<Map<String, dynamic>> get _users =>
       _db.collection('users');
 
+  // ── CRUD de base ─────────────────────────────────────────────────────────
+
+  /// Crée un nouveau document utilisateur dans Firestore.
+  /// L'ID du document est toujours = uid Firebase Auth.
   Future<void> create(AppUser user) {
     return _users.doc(user.uid).set({
       ...user.toMap(),
@@ -18,18 +23,75 @@ class UserService {
     });
   }
 
-  /// Écoute le profil en temps réel : si le profil est créé juste après
-  /// l'inscription, l'écran se met à jour automatiquement.
-  /// Émet `null` tant que le document n'existe pas, et une erreur
-  /// si le rôle stocké est inconnu.
+  /// Vérifie si un document utilisateur existe dans Firestore.
+  Future<bool> exists(String uid) async {
+    final doc = await _users.doc(uid).get();
+    return doc.exists;
+  }
+
+  /// Récupère un utilisateur par UID (lecture unique).
+  Future<AppUser?> getUser(String uid) async {
+    final doc = await _users.doc(uid).get();
+    if (!doc.exists) return null;
+    final data = doc.data();
+    if (data == null) return null;
+    try {
+      return AppUser.fromMap(doc.id, data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Écoute le profil en temps réel.
+  /// Émet `null` tant que le document n'existe pas.
   Stream<AppUser?> watch(String uid) {
     return _users.doc(uid).snapshots().map((doc) {
       final data = doc.data();
-      return data == null ? null : AppUser.fromMap(doc.id, data);
+      if (data == null) return null;
+      try {
+        return AppUser.fromMap(doc.id, data);
+      } catch (_) {
+        return null;
+      }
     });
   }
 
-  /// Met à jour les informations du profil utilisateur.
+  // ── Restauration après migration ─────────────────────────────────────────
+
+  /// Crée ou restaure un profil Firestore à partir des données Firebase Auth.
+  ///
+  /// Utilisé dans deux cas :
+  ///   1. L'utilisateur se connecte mais son doc Firestore a été supprimé.
+  ///   2. Un utilisateur Auth orphelin est détecté au démarrage.
+  ///
+  /// RÈGLE : ne jamais écraser un document existant.
+  Future<void> createOrRestoreProfile({
+    required String uid,
+    required String email,
+    String? displayName,
+    String? phoneNumber,
+    UserRole defaultRole = UserRole.client,
+  }) async {
+    // Sécurité : ne pas écraser si le profil existe déjà
+    if (await exists(uid)) return;
+
+    final appUser = AppUser(
+      uid: uid,
+      name: displayName?.isNotEmpty == true
+          ? displayName!
+          : email.split('@').first,
+      email: email,
+      phone: phoneNumber ?? '',
+      role: defaultRole,
+      profile: const {},
+    );
+
+    await create(appUser);
+  }
+
+  // ── Mise à jour ──────────────────────────────────────────────────────────
+
+  /// Met à jour les informations de profil sans toucher au rôle.
   Future<void> updateProfile(String uid, Map<String, dynamic> data) {
     return _users.doc(uid).update({
       ...data,
@@ -37,23 +99,8 @@ class UserService {
     });
   }
 
-  /// Écoute tous les utilisateurs en temps réel (pour l'administration).
-  Stream<List<AppUser>> watchAllUsers() {
-    return _users.snapshots().map((snapshot) {
-      final list = <AppUser>[];
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        try {
-          list.add(AppUser.fromMap(doc.id, data));
-        } catch (_) {
-          // Ignore documents with invalid schema
-        }
-      }
-      return list;
-    });
-  }
-
-  /// Met à jour le rôle d'un utilisateur.
+  /// Met à jour le rôle d'un utilisateur (action admin).
+  /// Ne change jamais automatiquement admin/vendeur/livreur → client.
   Future<void> updateRole(String uid, String roleName) {
     return _users.doc(uid).update({
       'role': roleName,
@@ -69,14 +116,32 @@ class UserService {
     });
   }
 
-  /// Supprime un utilisateur de Firestore.
+  // ── Lecture admin ────────────────────────────────────────────────────────
+
+  /// Écoute tous les utilisateurs en temps réel (admin uniquement).
+  Stream<List<AppUser>> watchAllUsers() {
+    return _users.snapshots().map((snapshot) {
+      final list = <AppUser>[];
+      for (final doc in snapshot.docs) {
+        try {
+          list.add(AppUser.fromMap(doc.id, doc.data()));
+        } catch (_) {
+          // Ignore les docs au schéma invalide
+        }
+      }
+      return list;
+    });
+  }
+
+  // ── Suppression ──────────────────────────────────────────────────────────
+
+  /// Supprime un utilisateur de Firestore (pas de Firebase Auth).
   Future<void> deleteUser(String uid) async {
     await _users.doc(uid).delete();
-    // Si c'était un vendeur, on retire aussi sa fiche boutique.
     await _db.collection('boutiques').doc(uid).delete();
   }
 
-  /// Supprime tous les utilisateurs de test / démo de la collection users.
+  /// Purge les utilisateurs de test / démo.
   Future<int> purgeDemoUsers() async {
     final snapshot = await _users.get();
     int count = 0;

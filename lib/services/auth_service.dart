@@ -8,7 +8,12 @@ class AuthService {
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  /// Crée le compte et renvoie l'uid du nouvel utilisateur.
+  /// Utilisateur actuellement connecté (null si déconnecté)
+  User? get currentUser => _auth.currentUser;
+
+  /// Crée un nouveau compte Firebase Auth et renvoie l'UID.
+  /// Lève [FirebaseAuthException] avec code 'email-already-in-use'
+  /// si le compte existe déjà dans Authentication.
   Future<String> signUp({
     required String name,
     required String email,
@@ -22,7 +27,11 @@ class AuthService {
     return cred.user!.uid;
   }
 
-  Future<void> login({required String email, required String password}) {
+  /// Connexion avec email/password, retourne le [UserCredential].
+  Future<UserCredential> login({
+    required String email,
+    required String password,
+  }) {
     return _auth.signInWithEmailAndPassword(
       email: email.trim(),
       password: password,

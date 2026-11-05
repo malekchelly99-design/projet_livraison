@@ -2,56 +2,148 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // ===== FONCTIONS HELPER =====
+    
+    // Vérifie si l'utilisateur est authentifié
     function isAuthenticated() {
       return request.auth != null;
     }
-
-    // 1. Table Utilisateurs (users)
-    // Contient : clients, vendeurs, livreurs, admins
+    
+    // Vérifie si l'utilisateur est admin
+    function isAdmin() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Vérifie si l'utilisateur est vendeur
+    function isVendeur() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'vendeur';
+    }
+    
+    // Vérifie si l'utilisateur est livreur
+    function isLivreur() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'livreur';
+    }
+    
+    // Vérifie si l'utilisateur est client
+    function isClient() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'client';
+    }
+    
+    // Vérifie si l'utilisateur accède à ses propres données
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+    
+    // ===== COLLECTION USERS =====
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      // Lecture: Admin ou propriétaire
+      allow read: if isAdmin() || isOwner(userId);
+      
+      // Création: Lors de l'inscription (tout utilisateur authentifié)
+      allow create: if isAuthenticated() && isOwner(userId);
+      
+      // Mise à jour: Admin ou propriétaire
+      allow update: if isAdmin() || isOwner(userId);
+      
+      // Suppression: Admin uniquement
+      allow delete: if isAdmin();
     }
-
-    // 2. Table Produits (products)
-    // Contient le catalogue des articles proposés par les vendeurs
-    match /products/{productId} {
-      allow read: if true;
-      allow create, update, delete: if isAuthenticated();
-    }
-
-    // 3. Table Commandes (orders)
-    // Contient les commandes des clients, préparées par les vendeurs et livrées par les livreurs
-    match /orders/{orderId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAuthenticated();
-    }
-
-    // 4. Table Catégories (categories)
-    // Contient les catégories de commerces et de produits
-    match /categories/{categoryId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
-    }
-
-    // 5. Table Paramètres de la Plateforme (settings)
-    // Paramètres généraux (frais de livraison de base, commission, état maintenance)
-    match /settings/{settingId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
-    }
-
-    // 6. Table Boutiques (boutiques)
-    // Fiches détaillées des commerces et restaurants enregistrées lors de l'inscription des vendeurs
+    
+    // ===== COLLECTION BOUTIQUES =====
+    // Règles critiques pour résoudre le problème de disparition des boutiques
     match /boutiques/{boutiqueId} {
-      allow read: if true;
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated();
+      // Lecture: TOUS les utilisateurs authentifiés (clients, vendeurs, livreurs, admin)
+      // IMPORTANT: Les clients DOIVENT pouvoir lire toutes les boutiques en permanence
+      allow read: if isAuthenticated();
+      
+      // Création: Vendeur (pour sa propre boutique) ou Admin
+      allow create: if isAuthenticated() && 
+                      (isOwner(boutiqueId) || isAdmin());
+      
+      // Mise à jour: Propriétaire de la boutique ou Admin
+      allow update: if isAuthenticated() && 
+                      (isOwner(boutiqueId) || isAdmin());
+      
+      // Suppression: Admin uniquement
+      allow delete: if isAdmin();
+    }
+    
+    // ===== COLLECTION PRODUCTS =====
+    match /products/{productId} {
+      // Lecture: Tous les utilisateurs authentifiés
+      allow read: if isAuthenticated();
+      
+      // Création: Vendeur ou Admin
+      allow create: if isAuthenticated() && (isVendeur() || isAdmin());
+      
+      // Mise à jour: Vendeur (propriétaire via vendorId) ou Admin
+      allow update: if isAuthenticated() && 
+                      (isAdmin() || 
+                       (isVendeur() && resource.data.vendorId == request.auth.uid));
+      
+      // Suppression: Vendeur (propriétaire) ou Admin
+      allow delete: if isAuthenticated() && 
+                      (isAdmin() || 
+                       (isVendeur() && resource.data.vendorId == request.auth.uid));
+    }
+    
+    // ===== COLLECTION ORDERS =====
+    match /orders/{orderId} {
+      // Lecture: Admin, Client (propriétaire), Vendeur concerné, ou Livreur assigné
+      allow read: if isAuthenticated() && 
+                    (isAdmin() || 
+                     isOwner(resource.data.clientId) ||
+                     (isVendeur() && resource.data.vendorName != null) ||
+                     (isLivreur() && resource.data.courierId == request.auth.uid));
+      
+      // Création: Client ou Admin
+      allow create: if isAuthenticated() && 
+                      (isClient() || isAdmin()) &&
+                      request.resource.data.clientId == request.auth.uid;
+      
+      // Mise à jour: Admin, Client (propriétaire), Vendeur, ou Livreur assigné
+      allow update: if isAuthenticated() && 
+                      (isAdmin() || 
+                       isOwner(resource.data.clientId) ||
+                       isVendeur() ||
+                       isLivreur());
+      
+      // Suppression: Admin uniquement
+      allow delete: if isAdmin();
+    }
+    
+    // ===== COLLECTION CATEGORIES =====
+    match /categories/{categoryId} {
+      // Lecture: Tous les utilisateurs authentifiés
+      allow read: if isAuthenticated();
+      
+      // Écriture: Admin uniquement
+      allow write: if isAdmin();
+    }
+    
+    // ===== COLLECTION SETTINGS =====
+    match /settings/{settingId} {
+      // Lecture: Tous les utilisateurs authentifiés
+      allow read: if isAuthenticated();
+      
+      // Écriture: Admin uniquement
+      allow write: if isAdmin();
+    }
+    
+    // ===== COLLECTION DE TEST =====
+    match /_test/{testId} {
+      // Lecture/Écriture: Tous les utilisateurs authentifiés (pour les tests de connexion)
+      allow read, write: if isAuthenticated();
+    }
+    
+    // ===== BLOCAGE PAR DÉFAUT =====
+    // Toutes les autres collections sont bloquées par défaut
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
-

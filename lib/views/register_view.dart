@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../controllers/auth_controller.dart';
 import '../controllers/register_controller.dart';
 import '../core/validators.dart';
 import '../models/user_role.dart';
@@ -51,9 +52,12 @@ class _RegisterViewState extends State<RegisterView> {
     super.dispose();
   }
 
+  // ── Soumission ──────────────────────────────────────────────────────────
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    final error = await _controller.submit(
+
+    final result = await _controller.submitWithResult(
       name: _nameCtrl.text,
       email: _emailCtrl.text,
       password: _passwordCtrl.text,
@@ -63,18 +67,172 @@ class _RegisterViewState extends State<RegisterView> {
       shopAddress: _shopAddressCtrl.text,
       taxId: _taxIdCtrl.text,
       description: _descriptionCtrl.text,
-      horaires: _hoursCtrl.text.trim().isNotEmpty ? _hoursCtrl.text.trim() : '08:00 - 22:00',
+      horaires: _hoursCtrl.text.trim().isNotEmpty
+          ? _hoursCtrl.text.trim()
+          : '08:00 - 22:00',
       cin: _cinCtrl.text,
       plate: _plateCtrl.text,
     );
+
     if (!mounted) return;
-    if (error == null) {
-      Navigator.of(context).popUntil((r) => r.isFirst);
-    } else {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error)));
+
+    switch (result.type) {
+      case RegisterResult.success:
+        // Inscription réussie → retour à l'accueil
+        Navigator.of(context).popUntil((r) => r.isFirst);
+
+      case RegisterResult.emailAlreadyExists:
+        // Cas migration : le compte Auth existe mais pas Firestore
+        await _showEmailExistsDialog(result.existingEmail ?? _emailCtrl.text);
+
+      case RegisterResult.error:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.errorMessage ?? 'Erreur inconnue')),
+        );
     }
   }
+
+  // ── Dialog "email déjà utilisé" ─────────────────────────────────────────
+
+  Future<void> _showEmailExistsDialog(String email) async {
+    final passwordCtrl = TextEditingController();
+    bool obscure = true;
+    String? loginError;
+    bool loggingIn = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.info_outline,
+                  color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Compte déjà existant',
+                  style: TextStyle(fontSize: 18),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Un compte existe déjà avec l\'adresse :',
+                  style: TextStyle(color: Colors.grey[700]),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  email,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Entrez votre mot de passe pour vous connecter à ce compte '
+                  'et restaurer votre profil.',
+                ),
+                const SizedBox(height: 16),
+
+                // Champ mot de passe
+                StatefulBuilder(
+                  builder: (_, setInnerState) => TextFormField(
+                    controller: passwordCtrl,
+                    obscureText: obscure,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      labelText: 'Mot de passe',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      border: const OutlineInputBorder(),
+                      errorText: loginError,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          obscure ? Icons.visibility : Icons.visibility_off,
+                        ),
+                        onPressed: () =>
+                            setInnerState(() => obscure = !obscure),
+                      ),
+                    ),
+                  ),
+                ),
+
+                if (loggingIn) ...[
+                  const SizedBox(height: 12),
+                  const Center(child: CircularProgressIndicator()),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            // Annuler
+            TextButton(
+              onPressed:
+                  loggingIn ? null : () => Navigator.of(ctx).pop(),
+              child: const Text('Annuler'),
+            ),
+
+            // Se connecter
+            FilledButton(
+              onPressed: loggingIn
+                  ? null
+                  : () async {
+                      if (passwordCtrl.text.isEmpty) {
+                        setDialogState(
+                          () => loginError = 'Veuillez entrer votre mot de passe',
+                        );
+                        return;
+                      }
+
+                      setDialogState(() {
+                        loggingIn = true;
+                        loginError = null;
+                      });
+
+                      // Tentative de connexion
+                      final authCtrl = AuthController();
+                      final error = await authCtrl.login(
+                        email: email,
+                        password: passwordCtrl.text,
+                      );
+                      authCtrl.dispose();
+
+                      if (!ctx.mounted) return;
+
+                      if (error == null) {
+                        // Connexion réussie → fermer le dialog et retourner à l'accueil
+                        Navigator.of(ctx).pop();
+                        if (mounted) {
+                          Navigator.of(context).popUntil((r) => r.isFirst);
+                        }
+                      } else {
+                        setDialogState(() {
+                          loggingIn = false;
+                          loginError = error;
+                        });
+                      }
+                    },
+              child: const Text('Se connecter'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    passwordCtrl.dispose();
+  }
+
+  // ── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -111,11 +269,11 @@ class _RegisterViewState extends State<RegisterView> {
     );
   }
 
-  // ---------- Sections ----------
+  // ── Sections du formulaire ───────────────────────────────────────────────
 
   Widget _roleSelector() {
     return SegmentedButton<UserRole>(
-      showSelectedIcon: false, // évite la coche qui prend de la place
+      showSelectedIcon: false,
       style: SegmentedButton.styleFrom(
         visualDensity: VisualDensity.compact,
         padding: const EdgeInsets.symmetric(horizontal: 6),

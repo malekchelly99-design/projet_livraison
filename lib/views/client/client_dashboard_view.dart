@@ -1020,203 +1020,16 @@ class _ClientDashboardViewState extends State<ClientDashboardView> {
           ),
           const SizedBox(height: 20),
 
-          // Liste des boutiques (collection `boutiques` dans Firestore)
-          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: FirebaseFirestore.instance
-                .collection('boutiques')
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(),
-                ));
-              }
-
-              final boutiqueDocs = snapshot.data?.docs ?? [];
-
-              // Si aucune boutique n'est trouvée dans la collection 'boutiques',
-              // fallback vers la collection 'users' pour compatibilité
-              if (boutiqueDocs.isEmpty) {
-                return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                  stream: FirebaseFirestore.instance
-                      .collection('users')
-                      .where('role', isEqualTo: 'vendeur')
-                      .snapshots(),
-                  builder: (context, userSnap) {
-                    if (userSnap.connectionState == ConnectionState.waiting) {
-                      return const Center(child: Padding(
-                        padding: EdgeInsets.all(32),
-                        child: CircularProgressIndicator(),
-                      ));
-                    }
-                    final userDocs = userSnap.data?.docs ?? [];
-                    return _buildBoutiquesList(userDocs, fromUsers: true);
-                  },
-                );
-              }
-
-              return _buildBoutiquesList(boutiqueDocs, fromUsers: false);
+          // Liste des boutiques - source combinée boutiques + vendeurs
+          _BoutiquesStreamWidget(
+            searchQuery: _shopSearchCtrl.text.trim().toLowerCase(),
+            onBoutiqueSelected: (shopName) {
+              _controller.setSelectedShop(shopName);
+              _controller.setTab(1);
             },
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildBoutiquesList(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs, {required bool fromUsers}) {
-    final query = _shopSearchCtrl.text.trim().toLowerCase();
-
-    final filtered = docs.where((doc) {
-      final data = (doc as dynamic).data() as Map<String, dynamic>?;
-      if (data == null) return false;
-      final profile = fromUsers ? Map<String, dynamic>.from(data['profile'] as Map? ?? {}) : data;
-      final shopName = ((profile['nomBoutique'] ?? profile['shopName'] ?? data['name']) as String? ?? '').toLowerCase();
-      final category = ((profile['categorie'] ?? profile['category']) as String? ?? '').toLowerCase();
-      final city = ((profile['ville'] ?? profile['city']) as String? ?? '').toLowerCase();
-      return query.isEmpty || shopName.contains(query) || category.contains(query) || city.contains(query);
-    }).toList();
-
-    if (filtered.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(36),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Column(
-          children: [
-            Icon(Icons.storefront_outlined, size: 52, color: Colors.grey.shade400),
-            const SizedBox(height: 12),
-            const Text(
-              'Aucune boutique trouvée',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Les commerces inscrits sur la plateforme apparaîtront automatiquement ici.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade600),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: filtered.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final data = filtered[index].data() ?? <String, dynamic>{};
-        final profile = fromUsers ? Map<String, dynamic>.from(data['profile'] as Map? ?? {}) : data;
-        final shopName = (profile['nomBoutique'] ?? profile['shopName'] ?? data['name'] ?? 'Boutique') as String;
-        final category = (profile['categorie'] ?? profile['category'] ?? 'Commerce') as String;
-        final address = (profile['adresse'] ?? profile['address'] ?? profile['ville'] ?? profile['city'] ?? 'Tunis') as String;
-        final city = (profile['ville'] ?? profile['city'] ?? '') as String;
-        final description = (profile['description'] as String?) ?? '';
-        final horaires = (profile['horaires'] as String?) ?? '';
-        final isOpen = (profile['disponible'] ?? profile['isOpen']) as bool? ?? true;
-
-        return Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: Colors.grey.shade200),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: Colors.deepOrange.withAlpha(25),
-                  child: const Icon(Icons.store, color: Colors.deepOrange),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              shopName,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: isOpen ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              isOpen ? 'Ouvert' : 'Fermé',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: isOpen ? const Color(0xFF15803D) : const Color(0xFFDC2626),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        city.isNotEmpty && city != address ? '$category | $address ($city)' : '$category | $address',
-                        style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-                      ),
-                      if (description.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          description,
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                      if (horaires.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(Icons.access_time, size: 14, color: Colors.grey.shade500),
-                            const SizedBox(width: 4),
-                            Text(
-                              horaires,
-                              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                FilledButton.tonal(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.deepOrange.withAlpha(25),
-                    foregroundColor: Colors.deepOrange,
-                  ),
-                  onPressed: () {
-                    _controller.setSelectedShop(shopName);
-                    _controller.setTab(1); // Bascule sur le catalogue filtré
-                  },
-                  child: const Text('Voir produits'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -1968,6 +1781,352 @@ class _ClientDashboardViewState extends State<ClientDashboardView> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Widget autonome pour charger et afficher les boutiques.
+// Gère les erreurs de règles Firestore en basculant automatiquement vers
+// la collection `users` si `boutiques` est inaccessible.
+// ═══════════════════════════════════════════════════════════════════════════
+class _BoutiquesStreamWidget extends StatefulWidget {
+  final String searchQuery;
+  final void Function(String shopName) onBoutiqueSelected;
+
+  const _BoutiquesStreamWidget({
+    required this.searchQuery,
+    required this.onBoutiqueSelected,
+  });
+
+  @override
+  State<_BoutiquesStreamWidget> createState() => _BoutiquesStreamWidgetState();
+}
+
+class _BoutiquesStreamWidgetState extends State<_BoutiquesStreamWidget> {
+  // true = lecture OK depuis 'boutiques', false = fallback 'users', null = en cours
+  bool? _usesBoutiquesCollection;
+
+  @override
+  void initState() {
+    super.initState();
+    _detectSource();
+  }
+
+  /// Vérifie quelle collection est accessible avec les règles Firestore actuelles.
+  Future<void> _detectSource() async {
+    try {
+      await FirebaseFirestore.instance.collection('boutiques').limit(1).get();
+      if (mounted) setState(() => _usesBoutiquesCollection = true);
+    } catch (_) {
+      // Règles Firestore bloquent 'boutiques' → fallback vers 'users'
+      if (mounted) setState(() => _usesBoutiquesCollection = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // En attente de la détection de source
+    if (_usesBoutiquesCollection == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_usesBoutiquesCollection == true) {
+      // ── Source principale: collection 'boutiques' ──
+      return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance.collection('boutiques').snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+            return const Center(
+              child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()),
+            );
+          }
+          if (snapshot.hasError) {
+            // La règle a changé en cours de session → basculer
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _usesBoutiquesCollection = false);
+            });
+            return const Center(
+              child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()),
+            );
+          }
+          final docs = snapshot.data?.docs ?? [];
+          if (docs.isEmpty) {
+            // 'boutiques' accessible mais vide → regarder aussi dans 'users'
+            return _buildFromUsersStream();
+          }
+          return _BoutiquesList(
+            docs: docs,
+            fromUsers: false,
+            searchQuery: widget.searchQuery,
+            onBoutiqueSelected: widget.onBoutiqueSelected,
+          );
+        },
+      );
+    } else {
+      // ── Fallback: collection 'users' avec role='vendeur' ──
+      return _buildFromUsersStream();
+    }
+  }
+
+  Widget _buildFromUsersStream() {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isEqualTo: 'vendeur')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+          return const Center(
+            child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasError) {
+          return _buildPermissionError();
+        }
+        final docs = snapshot.data?.docs ?? [];
+        return _BoutiquesList(
+          docs: docs,
+          fromUsers: true,
+          searchQuery: widget.searchQuery,
+          onBoutiqueSelected: widget.onBoutiqueSelected,
+        );
+      },
+    );
+  }
+
+  Widget _buildPermissionError() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(36),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.lock_outline, size: 52, color: Colors.orange.shade400),
+          const SizedBox(height: 12),
+          const Text(
+            'Accès restreint',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Les boutiques ne sont pas encore accessibles. '
+            'Demandez à l\'administrateur de configurer les règles Firestore.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: () {
+              setState(() => _usesBoutiquesCollection = null);
+              _detectSource();
+            },
+            icon: const Icon(Icons.refresh),
+            label: const Text('Réessayer'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Widget de liste des boutiques (stateless, réutilisable).
+// ═══════════════════════════════════════════════════════════════════════════
+class _BoutiquesList extends StatelessWidget {
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> docs;
+  final bool fromUsers;
+  final String searchQuery;
+  final void Function(String shopName) onBoutiqueSelected;
+
+  const _BoutiquesList({
+    required this.docs,
+    required this.fromUsers,
+    required this.searchQuery,
+    required this.onBoutiqueSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = docs.where((doc) {
+      final data = doc.data();
+      final profile = fromUsers
+          ? Map<String, dynamic>.from(data['profile'] as Map? ?? {})
+          : data;
+      final shopName =
+          ((profile['nomBoutique'] ?? profile['shopName'] ?? data['name']) as String? ?? '')
+              .toLowerCase();
+      final category =
+          ((profile['categorie'] ?? profile['category']) as String? ?? '').toLowerCase();
+      final city =
+          ((profile['ville'] ?? profile['city']) as String? ?? '').toLowerCase();
+      return searchQuery.isEmpty ||
+          shopName.contains(searchQuery) ||
+          category.contains(searchQuery) ||
+          city.contains(searchQuery);
+    }).toList();
+
+    if (filtered.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(36),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.storefront_outlined, size: 52, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            const Text(
+              'Aucune boutique trouvée',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Les commerces inscrits sur la plateforme apparaîtront automatiquement ici.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: filtered.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final data = filtered[index].data();
+        final profile = fromUsers
+            ? Map<String, dynamic>.from(data['profile'] as Map? ?? {})
+            : data;
+
+        final shopName =
+            (profile['nomBoutique'] ?? profile['shopName'] ?? data['name'] ?? 'Boutique') as String;
+        final category = (profile['categorie'] ?? profile['category'] ?? 'Commerce') as String;
+        final address =
+            (profile['adresse'] ?? profile['address'] ?? profile['ville'] ?? profile['city'] ?? 'Tunis') as String;
+        final city = (profile['ville'] ?? profile['city'] ?? '') as String;
+        final description = (profile['description'] as String?) ?? '';
+        final horaires = (profile['horaires'] as String?) ?? '';
+        final isOpen = (profile['disponible'] ?? profile['isOpen']) as bool? ?? true;
+
+        return Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Colors.grey.shade200),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => onBoutiqueSelected(shopName),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 26,
+                    backgroundColor: Colors.deepOrange.withAlpha(25),
+                    child: const Icon(Icons.store, color: Colors.deepOrange),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                shopName,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 16),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isOpen
+                                    ? const Color(0xFFDCFCE7)
+                                    : const Color(0xFFFEE2E2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                isOpen ? 'Ouvert' : 'Fermé',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: isOpen
+                                      ? const Color(0xFF15803D)
+                                      : const Color(0xFFDC2626),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          city.isNotEmpty && city != address
+                              ? '$category | $address ($city)'
+                              : '$category | $address',
+                          style:
+                              TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                        ),
+                        if (description.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            description,
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                                fontStyle: FontStyle.italic),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                        if (horaires.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(Icons.access_time,
+                                  size: 14, color: Colors.grey.shade500),
+                              const SizedBox(width: 4),
+                              Text(
+                                horaires,
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.grey.shade600),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, color: Colors.grey.shade400),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

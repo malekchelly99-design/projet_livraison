@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'boutique_service.dart';
+import 'boutique_sync_service.dart';
 import 'catalog_service.dart';
 import 'order_service.dart';
 import 'user_service.dart';
@@ -11,6 +12,7 @@ class DatabaseInitService {
   final OrderService _orderService;
   final UserService _userService;
   final BoutiqueService _boutiqueService;
+  final BoutiqueSyncService _boutiqueSyncService;
 
   DatabaseInitService({
     FirebaseFirestore? db,
@@ -18,11 +20,13 @@ class DatabaseInitService {
     OrderService? orderService,
     UserService? userService,
     BoutiqueService? boutiqueService,
+    BoutiqueSyncService? boutiqueSyncService,
   })  : _db = db ?? FirebaseFirestore.instance,
         _catalogService = catalogService ?? CatalogService(),
         _orderService = orderService ?? OrderService(),
         _userService = userService ?? UserService(),
-        _boutiqueService = boutiqueService ?? BoutiqueService();
+        _boutiqueService = boutiqueService ?? BoutiqueService(),
+        _boutiqueSyncService = boutiqueSyncService ?? BoutiqueSyncService();
 
   /// Initialise la structure des tables nécessaires dans Firestore si elles sont vides.
   Future<void> initializeTables() async {
@@ -44,31 +48,11 @@ class DatabaseInitService {
       });
     }
 
-    // 3. Synchronisation de la collection 'boutiques' pour tout vendeur existant
+    // 3. Migration: Create missing boutiques for existing sellers
     try {
-      final vendorUsers = await _db.collection('users').where('role', isEqualTo: 'vendeur').get();
-      for (final doc in vendorUsers.docs) {
-        final data = doc.data();
-        final boutiqueDoc = await _db.collection('boutiques').doc(doc.id).get();
-        if (!boutiqueDoc.exists) {
-          final profile = Map<String, dynamic>.from(data['profile'] as Map? ?? {});
-          await _boutiqueService.create(
-            vendeurId: doc.id,
-            nomBoutique: (profile['shopName'] as String?) ?? (data['name'] as String?) ?? 'Boutique',
-            categorie: (profile['category'] as String?) ?? 'Restaurant',
-            adresse: (profile['address'] as String?) ?? (profile['city'] as String?) ?? 'Tunis',
-            ville: (profile['city'] as String?) ?? 'Tunis',
-            matriculeFiscale: (profile['taxId'] as String?) ?? '',
-            nomResponsable: (data['name'] as String?) ?? '',
-            email: (data['email'] as String?) ?? '',
-            telephone: (data['phone'] as String?) ?? '',
-            description: (profile['description'] as String?) ?? '',
-            horaires: (profile['horaires'] as String?) ?? '08:00 - 22:00',
-          );
-        }
-      }
-    } catch (_) {
-      // Ignorer si pas encore authentifié au démarrage
+      await _boutiqueSyncService.migrateMissingBoutiques();
+    } catch (e) {
+      print('⚠️  Erreur lors de la migration des boutiques: $e');
     }
   }
 

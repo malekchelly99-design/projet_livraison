@@ -1,12 +1,41 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+
 import '../core/auth_errors.dart';
 import '../models/app_user.dart';
 import '../models/profiles.dart';
 import '../models/user_role.dart';
 import '../services/auth_service.dart';
 import '../services/boutique_service.dart';
+import '../services/boutique_sync_service.dart';
 import '../services/user_service.dart';
 import 'base_controller.dart';
+
+/// Résultat du submit pour distinguer succès / erreur / email existant.
+enum RegisterResult {
+  success,
+  error,
+  emailAlreadyExists,
+}
+
+class RegisterSubmitResult {
+  final RegisterResult type;
+  final String? errorMessage;
+  final String? existingEmail; // rempli si emailAlreadyExists
+
+  const RegisterSubmitResult.success()
+      : type = RegisterResult.success,
+        errorMessage = null,
+        existingEmail = null;
+
+  const RegisterSubmitResult.error(this.errorMessage)
+      : type = RegisterResult.error,
+        existingEmail = null;
+
+  const RegisterSubmitResult.emailExists(this.existingEmail)
+      : type = RegisterResult.emailAlreadyExists,
+        errorMessage = null;
+}
 
 /// Inscription : état du formulaire (rôle, listes déroulantes)
 /// et création du compte + du profil.
@@ -25,14 +54,17 @@ class RegisterController extends BaseController {
   final AuthService _auth;
   final UserService _users;
   final BoutiqueService _boutiques;
+  final BoutiqueSyncService _boutiqueSync;
 
   RegisterController({
     AuthService? auth,
     UserService? users,
     BoutiqueService? boutiques,
+    BoutiqueSyncService? boutiqueSync,
   })  : _auth = auth ?? AuthService(),
         _users = users ?? UserService(),
-        _boutiques = boutiques ?? BoutiqueService();
+        _boutiques = boutiques ?? BoutiqueService(),
+        _boutiqueSync = boutiqueSync ?? BoutiqueSyncService();
 
   UserRole _role = UserRole.client;
   String? _shopCategory;
@@ -65,8 +97,12 @@ class RegisterController extends BaseController {
     notifyListeners();
   }
 
-  /// Renvoie `null` en cas de succès, ou un message d'erreur.
-  Future<String?> submit({
+  /// Soumission du formulaire d'inscription.
+  /// Renvoie un [RegisterSubmitResult] qui indique :
+  ///   - success → tout est OK
+  ///   - error   → message d'erreur générique
+  ///   - emailAlreadyExists → l'email est déjà dans Firebase Auth
+  Future<RegisterSubmitResult> submitWithResult({
     required String name,
     required String email,
     required String password,
@@ -81,83 +117,173 @@ class RegisterController extends BaseController {
     String plate = '',
   }) async {
     if (!selfRegisterRoles.contains(_role)) {
-      return 'Rôle non autorisé à l\'inscription';
+      return const RegisterSubmitResult.error('Rôle non autorisé à l\'inscription');
     }
+
     _loading = true;
     notifyListeners();
+
     try {
-      final uid = await _auth.signUp(
-        name: name,
-        email: email,
-        password: password,
-      );
+      // ── Étape 1 : Créer le compte Firebase Auth ──────────────────────────
+      final String uid;
+      try {
+        uid = await _auth.signUp(
+          name: name,
+          email: email,
+          password: password,
+        );
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'email-already-in-use') {
+          // Cas clé : le compte Auth existe mais pas forcément le profil Firestore
+          return RegisterSubmitResult.emailExists(email.trim());
+        }
+        return RegisterSubmitResult.error(authErrorMessage(e));
+      }
 
-      final appUser = AppUser(
-        uid: uid,
-        name: name.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
-        role: _role,
-        profile: _buildProfile(
-          city: city,
-          shopName: shopName,
-          shopAddress: shopAddress,
-          taxId: taxId,
-          description: description,
-          horaires: horaires,
-          cin: cin,
-          plate: plate,
-        ),
-      );
-
-      await _users.create(appUser);
-
-      // Vendeur : on enregistre tous les attributs de la boutique
-      // dans la collection / table `boutiques` de Firestore.
-      if (_role == UserRole.vendeur) {
-        try {
-          await _boutiques.create(
-            vendeurId: uid,
-            nomBoutique: shopName.trim().isNotEmpty
-                ? shopName.trim()
-                : (name.trim().isNotEmpty ? 'Boutique $name' : 'Boutique'),
-            categorie: _shopCategory,
-            adresse: shopAddress,
-            ville: city,
-            matriculeFiscale: taxId,
-            nomResponsable: name,
-            email: email,
-            telephone: phone,
+      // ── Étape 2 : Vérifier si le doc Firestore n'existe pas déjà ─────────
+      // (sécurité anti-doublon si l'appel est répété)
+      final alreadyInFirestore = await _users.exists(uid);
+      if (!alreadyInFirestore) {
+        // ── Étape 3 : Construire et sauvegarder le profil ──────────────────
+        final appUser = AppUser(
+          uid: uid,
+          name: name.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          role: _role,
+          profile: _buildProfile(
+            city: city,
+            shopName: shopName,
+            shopAddress: shopAddress,
+            taxId: taxId,
             description: description,
             horaires: horaires,
-          );
-        } catch (errBoutique) {
-          debugPrint('Avertissement création boutique Firestore: $errBoutique');
-          // Tentative de secours avec sync
-          try {
-            await _boutiques.sync(
-              vendeurId: uid,
-              nomBoutique: shopName,
-              categorie: _shopCategory,
-              adresse: shopAddress,
-              ville: city,
-              matriculeFiscale: taxId,
-              nomResponsable: name,
-              email: email,
-              telephone: phone,
-              description: description,
-              horaires: horaires,
-            );
-          } catch (_) {}
-        }
+            cin: cin,
+            plate: plate,
+          ),
+        );
+        await _users.create(appUser);
       }
-      return null;
+
+      // ── Étape 4 : Si vendeur, créer/synchroniser la boutique ──────────────
+      if (_role == UserRole.vendeur) {
+        await _createBoutiqueOrSync(
+          uid: uid,
+          shopName: shopName,
+          name: name,
+          shopAddress: shopAddress,
+          city: city,
+          taxId: taxId,
+          email: email,
+          phone: phone,
+          description: description,
+          horaires: horaires,
+        );
+      }
+
+      return const RegisterSubmitResult.success();
     } catch (e) {
-      debugPrint('Erreur lors de l\'inscription: $e');
-      return authErrorMessage(e);
+      debugPrint('Erreur inscription: $e');
+      return RegisterSubmitResult.error(authErrorMessage(e));
     } finally {
       _loading = false;
       notifyListeners();
+    }
+  }
+
+  /// Conservé pour rétro-compatibilité si besoin.
+  Future<String?> submit({
+    required String name,
+    required String email,
+    required String password,
+    required String phone,
+    required String city,
+    String shopName = '',
+    String shopAddress = '',
+    String taxId = '',
+    String description = '',
+    String horaires = '08:00 - 22:00',
+    String cin = '',
+    String plate = '',
+  }) async {
+    final result = await submitWithResult(
+      name: name,
+      email: email,
+      password: password,
+      phone: phone,
+      city: city,
+      shopName: shopName,
+      shopAddress: shopAddress,
+      taxId: taxId,
+      description: description,
+      horaires: horaires,
+      cin: cin,
+      plate: plate,
+    );
+    switch (result.type) {
+      case RegisterResult.success:
+        return null;
+      case RegisterResult.emailAlreadyExists:
+        return 'Un compte existe déjà avec cet email. Veuillez vous connecter.';
+      case RegisterResult.error:
+        return result.errorMessage;
+    }
+  }
+
+  // ── Helpers privés ──────────────────────────────────────────────────────
+
+  Future<void> _createBoutiqueOrSync({
+    required String uid,
+    required String shopName,
+    required String name,
+    required String shopAddress,
+    required String city,
+    required String taxId,
+    required String email,
+    required String phone,
+    required String description,
+    required String horaires,
+  }) async {
+    final nomBoutique = shopName.trim().isNotEmpty
+        ? shopName.trim()
+        : (name.trim().isNotEmpty ? 'Boutique $name' : 'Boutique');
+
+    try {
+      // Use the new boutique sync service for automatic creation
+      await _boutiqueSync.createBoutiqueForNewSeller(
+        vendeurId: uid,
+        shopName: nomBoutique,
+        category: _shopCategory ?? 'Autre',
+        address: shopAddress,
+        city: city,
+        phone: phone,
+        email: email,
+        name: name,
+        taxId: taxId,
+        description: description,
+        horaires: horaires,
+      );
+      debugPrint('[RegisterController] Boutique created successfully for $uid');
+    } catch (e) {
+      debugPrint('[RegisterController] Error creating boutique: $e');
+      // Try sync as fallback
+      try {
+        await _boutiqueSync.syncBoutiqueForSeller(
+          vendeurId: uid,
+          shopName: nomBoutique,
+          category: _shopCategory ?? 'Autre',
+          address: shopAddress,
+          city: city,
+          phone: phone,
+          email: email,
+          name: name,
+          taxId: taxId,
+          description: description,
+          horaires: horaires,
+        );
+      } catch (e2) {
+        debugPrint('[RegisterController] Boutique sync also failed: $e2');
+      }
     }
   }
 
