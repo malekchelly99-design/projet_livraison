@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter (Chrome Web)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "chrome"
+    },
+    {
+      "name": "Flutter (Émulateur Android / Pixel 8)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "Pixel_8"
+    },
+    {
+      "name": "Flutter (Appareil par défaut)",
+      "request": "launch",
+      "type": "dart"
+    }
+  ]
+}
+

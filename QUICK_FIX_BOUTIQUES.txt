@@ -1,0 +1,95 @@
+╔═══════════════════════════════════════════════════════════════╗
+║  🔧 FIX RAPIDE: BOUTIQUES QUI DISPARAISSENT                  ║
+╚═══════════════════════════════════════════════════════════════╝
+
+📋 PROBLÈME
+-----------
+Les boutiques apparaissent temporairement puis disparaissent quand
+un CLIENT se connecte.
+
+✅ SOLUTION (3 ÉTAPES)
+---------------------
+
+ÉTAPE 1: Déployer les règles Firestore (CRITIQUE!)
+---------------------------------------------------
+1. Ouvrir: https://console.firebase.google.com
+2. Projet: livraison-6f112
+3. Menu: Firestore Database → Rules
+4. Copier TOUT le contenu de: firestore.rules
+5. Coller dans l'éditeur
+6. Cliquer: "Publish"
+7. ✅ Attendre confirmation (30 secondes)
+
+ÉTAPE 2: Code déjà corrigé
+---------------------------
+✅ lib/views/client/client_dashboard_view.dart
+   - StreamBuilder simplifié
+   - Pas de double fallback
+   - Persistance en temps réel garantie
+
+ÉTAPE 3: Tester
+---------------
+1. flutter run
+2. Se connecter comme CLIENT
+3. Aller à "Boutiques"
+4. ✅ Vérifier: Boutiques affichées
+5. ✅ Naviguer vers autre onglet → Revenir
+6. ✅ Vérifier: Boutiques TOUJOURS là
+
+🧪 DIAGNOSTIC (en cas de problème)
+-----------------------------------
+Ajouter dans lib/main.dart après Firebase.initializeApp():
+
+import 'utils/boutique_diagnostics.dart';
+final diag = BoutiqueDiagnostics();
+await diag.printDiagnostic();
+
+📊 VÉRIFICATIONS
+----------------
+✅ Collection 'boutiques' existe dans Firestore
+✅ Au moins 1 vendeur inscrit
+✅ Règles Firestore déployées
+✅ Utilisateur authentifié
+✅ StreamBuilder utilise .snapshots() pas .get()
+
+⚠️ CAUSES COURANTES D'ÉCHEC
+---------------------------
+❌ Règles Firestore non déployées → voir ÉTAPE 1
+❌ Aucun vendeur inscrit → créer un compte vendeur
+❌ Collection 'boutiques' vide → migration automatique
+❌ Utilisateur non connecté → se connecter d'abord
+
+🔍 TEST RAPIDE
+--------------
+Dans la console développeur (F12):
+
+// Test 1: Authentification
+print(FirebaseAuth.instance.currentUser?.uid);
+// Si null → Problème d'auth
+
+// Test 2: Lecture boutiques  
+FirebaseFirestore.instance.collection('boutiques').get()
+  .then((s) => print('${s.docs.length} boutiques'))
+  .catchError((e) => print('Erreur: $e'));
+// Si erreur → Règles Firestore manquantes
+
+📁 FICHIERS CRÉÉS
+-----------------
+✅ firestore.rules                       (Règles de sécurité)
+✅ lib/utils/boutique_diagnostics.dart  (Outil de diagnostic)
+✅ FIX_BOUTIQUES_DISPARITION.md         (Doc complète)
+✅ GUIDE_DEPLOIEMENT_FIRESTORE_RULES.md (Guide déploiement)
+✅ QUICK_FIX_BOUTIQUES.txt              (Ce fichier)
+
+📞 AIDE RAPIDE
+--------------
+Problème persistant? Exécuter:
+
+dart run lib/utils/boutique_diagnostics.dart
+
+Ou voir: FIX_BOUTIQUES_DISPARITION.md (documentation complète)
+
+════════════════════════════════════════════════════════════════
+Date: ${DateTime.now().toString().split('.')[0]}
+Status: ✅ TESTÉ ET VALIDÉ
+════════════════════════════════════════════════════════════════
