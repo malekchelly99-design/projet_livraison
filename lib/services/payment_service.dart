@@ -67,7 +67,7 @@ class PaymentService {
     return _payments.snapshots().map((snapshot) {
       return snapshot.docs
           .where((doc) => doc.id != 'schema_template')
-          .map((doc) => PaymentModel.fromMap(doc.id, doc.data()))
+          .map((doc) => PaymentModel.fromMap(doc.data(), doc.id))
           .toList();
     });
   }
@@ -80,7 +80,7 @@ class PaymentService {
         .map((snapshot) {
       return snapshot.docs
           .where((doc) => doc.id != 'schema_template')
-          .map((doc) => PaymentModel.fromMap(doc.id, doc.data()))
+          .map((doc) => PaymentModel.fromMap(doc.data(), doc.id))
           .toList();
     });
   }
