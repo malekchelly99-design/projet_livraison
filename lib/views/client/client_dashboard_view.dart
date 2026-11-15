@@ -838,37 +838,43 @@ class _ClientDashboardViewState extends State<ClientDashboardView> {
       children: [
         // En-tête de section
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: Colors.deepOrange.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: Colors.deepOrange.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.stars_rounded, color: Colors.deepOrange, size: 22),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Meilleurs plats par boutique',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  child: const Icon(Icons.stars_rounded, color: Colors.deepOrange, size: 22),
-                ),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Meilleurs plats par boutique',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      'Les spécialités les plus appréciées de chaque commerce',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                    ),
-                  ],
-                ),
-              ],
+                  Text(
+                    'Les spécialités les plus appréciées de chaque commerce',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
             TextButton.icon(
-              icon: const Icon(Icons.storefront, size: 16),
-              label: const Text('Boutiques'),
+              icon: const Icon(Icons.storefront, size: 15),
+              label: const Text('Boutiques', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               onPressed: () => _controller.setTab(2),
             ),
           ],
@@ -947,10 +953,11 @@ class _ClientDashboardViewState extends State<ClientDashboardView> {
         children: [
           // En-tête de la boutique
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFFEA580C), Color(0xFFC2410C)],
@@ -959,47 +966,54 @@ class _ClientDashboardViewState extends State<ClientDashboardView> {
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.storefront_rounded, color: Colors.white, size: 22),
+                child: const Icon(Icons.storefront_rounded, color: Colors.white, size: 20),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       shopName,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Row(
                       children: [
-                        const Icon(Icons.star, size: 14, color: Colors.amber),
-                        const SizedBox(width: 4),
+                        const Icon(Icons.star, size: 13, color: Colors.amber),
+                        const SizedBox(width: 3),
                         Text(
                           avgRating.toStringAsFixed(1),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '• ${dishes.length} plat(s) au menu',
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            '· ${dishes.length} plat(s)',
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.deepOrange,
                   side: const BorderSide(color: Colors.deepOrange),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                icon: const Icon(Icons.restaurant_menu, size: 15),
-                label: const Text('Menu complet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                icon: const Icon(Icons.restaurant_menu, size: 13),
+                label: const Text('Menu', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                 onPressed: () {
                   _controller.setSelectedShop(shopName);
                   _controller.setTab(1);
