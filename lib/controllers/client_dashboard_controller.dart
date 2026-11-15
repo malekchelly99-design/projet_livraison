@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/app_user.dart';
+import '../models/category_model.dart';
 import '../models/courier_location.dart';
 import '../models/order_model.dart';
 import '../models/product.dart';
@@ -32,6 +33,7 @@ class ClientDashboardController extends BaseController {
         _trackingService = trackingService ?? LocationTrackingService(),
         _boutiqueService = boutiqueService ?? BoutiqueService() {
     _initCatalog();
+    _initCategories();
   }
 
   // --- NAVIGATION ONGLETS ---
@@ -44,6 +46,52 @@ class ClientDashboardController extends BaseController {
       _currentTab = index;
       notifyListeners();
     }
+  }
+
+  // --- CATÉGORIES DYNAMIQUES DEPUIS FIRESTORE ---
+  List<CategoryModel> _firestoreCategories = [];
+  StreamSubscription<List<CategoryModel>>? _categoriesSub;
+
+  List<CategoryModel> get firestoreCategories => _firestoreCategories;
+
+  /// Renvoie les catégories pour la vue catalogue (avec "Tous" en tête)
+  List<Map<String, dynamic>> get dynamicCategories {
+    final List<Map<String, dynamic>> result = [
+      {'name': 'Tous', 'icon': Icons.apps},
+    ];
+    for (final cat in _firestoreCategories) {
+      result.add({'name': cat.name, 'icon': _iconForCategory(cat.icon)});
+    }
+    return result;
+  }
+
+  IconData _iconForCategory(String iconName) {
+    switch (iconName.toLowerCase()) {
+      case 'restaurant': return Icons.restaurant;
+      case 'local_pizza': return Icons.local_pizza;
+      case 'local_grocery_store': return Icons.local_grocery_store;
+      case 'bakery_dining': return Icons.bakery_dining;
+      case 'local_cafe': return Icons.local_cafe;
+      case 'local_pharmacy': return Icons.local_pharmacy;
+      case 'fastfood': return Icons.fastfood;
+      case 'lunch_dining': return Icons.lunch_dining;
+      case 'dinner_dining': return Icons.dinner_dining;
+      case 'icecream': return Icons.icecream;
+      case 'emoji_food_beverage': return Icons.emoji_food_beverage;
+      default: return Icons.category;
+    }
+  }
+
+  void _initCategories() {
+    _categoriesSub = _catalogService.watchCategories().listen(
+      (list) {
+        _firestoreCategories = list;
+        notifyListeners();
+      },
+      onError: (e) {
+        debugPrint('[ClientController] Erreur catégories: $e');
+      },
+    );
   }
 
   // --- CATALOGUE ET FILTRES ---
@@ -360,6 +408,7 @@ class ClientDashboardController extends BaseController {
   @override
   void dispose() {
     _catalogSub?.cancel();
+    _categoriesSub?.cancel();
     addressCtrl.dispose();
     phoneCtrl.dispose();
     notesCtrl.dispose();

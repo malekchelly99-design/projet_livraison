@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/app_user.dart';
+import '../models/category_model.dart';
 import '../models/order_model.dart';
 import '../models/product.dart';
 import '../services/boutique_service.dart';
@@ -18,6 +19,27 @@ class VendeurDashboardController extends BaseController {
 
   StreamSubscription<List<Product>>? _productsSub;
   StreamSubscription<List<OrderModel>>? _ordersSub;
+  StreamSubscription<List<CategoryModel>>? _categoriesSub;
+
+  // Catégories dynamiques depuis Firestore
+  List<CategoryModel> _firestoreCategories = [];
+  List<CategoryModel> get firestoreCategories => _firestoreCategories;
+
+  /// Noms des catégories disponibles (incluant "Tous" en premier)
+  List<String> get categoryNames {
+    final names = _firestoreCategories.map((c) => c.name).toList();
+    if (!names.contains('Tous')) names.insert(0, 'Tous');
+    return names;
+  }
+
+  /// Noms des catégories sans "Tous" (pour le formulaire produit)
+  List<String> get productCategoryNames {
+    final names = _firestoreCategories.map((c) => c.name).toList();
+    if (names.isEmpty) {
+      return ['Plats', 'Sandwiches', 'Pizzas', 'Boissons', 'Desserts', 'Épicerie', 'Autre'];
+    }
+    return names;
+  }
 
   int _currentTab = 0;
   int get currentTab => _currentTab;
@@ -60,6 +82,7 @@ class VendeurDashboardController extends BaseController {
         _userService = userService ?? UserService(),
         _boutiqueService = boutiqueService ?? BoutiqueService() {
     _initSubscriptions();
+    _initCategories();
   }
 
   String get shopName => (user.profile['shopName'] as String?)?.trim().isNotEmpty == true
@@ -135,6 +158,34 @@ class VendeurDashboardController extends BaseController {
     if (_currentTab != index) {
       _currentTab = index;
       notifyListeners();
+    }
+  }
+
+  void _initCategories() {
+    _categoriesSub = _catalogService.watchCategories().listen(
+      (list) {
+        _firestoreCategories = list;
+        notifyListeners();
+      },
+      onError: (err) {
+        debugPrint('[VendeurController] Erreur catégories: $err');
+      },
+    );
+    // S'assurer que les catégories par défaut existent dans Firestore
+    _catalogService.ensureDefaultCategories().catchError((e) {
+      debugPrint('[VendeurController] ensureDefaultCategories error: $e');
+    });
+  }
+
+  /// Ajoute une nouvelle catégorie si elle n'existe pas déjà.
+  Future<String?> addNewCategory(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return 'Le nom de la catégorie est requis.';
+    try {
+      await _catalogService.addCategoryIfNotExists(trimmed);
+      return null; // succès
+    } catch (e) {
+      return 'Erreur lors de l\'ajout de la catégorie : $e';
     }
   }
 
@@ -330,6 +381,7 @@ class VendeurDashboardController extends BaseController {
   void dispose() {
     _productsSub?.cancel();
     _ordersSub?.cancel();
+    _categoriesSub?.cancel();
     super.dispose();
   }
 }

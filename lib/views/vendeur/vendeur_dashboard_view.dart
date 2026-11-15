@@ -1686,145 +1686,424 @@ class _VendeurDashboardViewState extends State<VendeurDashboardView> {
     final priceCtrl = TextEditingController(text: product != null ? product.price.toString() : '');
     final timeCtrl = TextEditingController(text: product != null ? product.deliveryTimeMinutes.toString() : '20');
     final imageCtrl = TextEditingController(text: product?.imageUrl ?? '');
-    String selectedCategory = product?.category ?? 'Plats';
+    final newCatCtrl = TextEditingController();
+
+    // Catégories disponibles depuis Firestore (ou fallback)
+    final availableCats = _controller.productCategoryNames;
+    String selectedCategory = (product?.category != null && availableCats.contains(product!.category))
+        ? product.category
+        : (availableCats.isNotEmpty ? availableCats.first : 'Plats');
+
     bool isPopular = product?.isPopular ?? false;
+    bool isSubmitting = false;
+    bool isAddingCategory = false;
+    String? localError;
+    String? previewImageUrl = product?.imageUrl;
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(isEditing ? 'Modifier le Produit' : 'Ajouter un Nouveau Produit'),
-          content: SingleChildScrollView(
-            child: SizedBox(
-              width: 480,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Nom du Produit *',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: descCtrl,
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                      labelText: 'Description',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: priceCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: const InputDecoration(
-                            labelText: 'Prix (DT) *',
-                            border: OutlineInputBorder(),
+        builder: (ctx, setDialogState) {
+          final cats = _controller.productCategoryNames;
+
+          // S'assurer que selectedCategory est valide
+          if (!cats.contains(selectedCategory) && cats.isNotEmpty) {
+            selectedCategory = cats.first;
+          }
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                Icon(
+                  isEditing ? Icons.edit_outlined : Icons.add_circle_outline,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 10),
+                Text(isEditing ? 'Modifier le Produit' : 'Ajouter un Nouveau Produit'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: SizedBox(
+                width: 500,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Erreur ──────────────────────────────────────────
+                    if (localError != null)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEE2E2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFEF4444)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(localError!, style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 13)),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    // ── Prévisualisation image ──────────────────────────
+                    if (previewImageUrl != null && previewImageUrl!.isNotEmpty)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 14),
+                        height: 140,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(
+                            previewImageUrl!,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (ctx, child, progress) =>
+                                progress == null ? child : const Center(child: CircularProgressIndicator()),
+                            errorBuilder: (ctx, e, s) => const Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.broken_image_outlined, size: 36, color: Colors.grey),
+                                  SizedBox(height: 4),
+                                  Text('URL invalide', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: timeCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Préparation (min)',
-                            border: OutlineInputBorder(),
+
+                    // ── Nom du produit ──────────────────────────────────
+                    TextFormField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Nom du Produit *',
+                        hintText: 'Ex: Pizza Margherita',
+                        prefixIcon: Icon(Icons.fastfood_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // ── Description ─────────────────────────────────────
+                    TextFormField(
+                      controller: descCtrl,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Description',
+                        hintText: 'Ex: Tomate, mozzarella, basilic frais...',
+                        prefixIcon: Icon(Icons.description_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // ── Prix + Temps ────────────────────────────────────
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: priceCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(
+                              labelText: 'Prix (DT) *',
+                              hintText: '0.00',
+                              prefixIcon: Icon(Icons.attach_money),
+                              border: OutlineInputBorder(),
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: timeCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Préparation (min)',
+                              hintText: '20',
+                              prefixIcon: Icon(Icons.timer_outlined),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    // ── Catégorie (dropdown) ────────────────────────────
+                    if (cats.isEmpty)
+                      const Center(child: CircularProgressIndicator())
+                    else
+                      DropdownButtonFormField<String>(
+                        initialValue: cats.contains(selectedCategory) ? selectedCategory : cats.first,
+                        decoration: const InputDecoration(
+                          labelText: 'Catégorie *',
+                          prefixIcon: Icon(Icons.category_outlined),
+                          border: OutlineInputBorder(),
+                        ),
+                        items: cats
+                            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) setDialogState(() => selectedCategory = val);
+                        },
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
-                    initialValue: _categories.contains(selectedCategory) && selectedCategory != 'Tous'
-                        ? selectedCategory
-                        : 'Plats',
-                    decoration: const InputDecoration(
-                      labelText: 'Catégorie *',
-                      border: OutlineInputBorder(),
+                    const SizedBox(height: 10),
+
+                    // ── Ajouter une nouvelle catégorie ──────────────────
+                    if (!isAddingCategory)
+                      TextButton.icon(
+                        onPressed: () => setDialogState(() => isAddingCategory = true),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Ajouter une nouvelle catégorie'),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF86EFAC)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '➕ Nouvelle catégorie',
+                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF15803D)),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: newCatCtrl,
+                                    autofocus: true,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Ex: Pizzas, Burgers, Tacos...',
+                                      isDense: true,
+                                      border: OutlineInputBorder(),
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                FilledButton(
+                                  onPressed: () async {
+                                    final newName = newCatCtrl.text.trim();
+                                    if (newName.isEmpty) return;
+                                    setDialogState(() => isSubmitting = true);
+                                    final err = await _controller.addNewCategory(newName);
+                                    setDialogState(() {
+                                      isSubmitting = false;
+                                      if (err == null) {
+                                        // La catégorie a été ajoutée, on la sélectionne
+                                        selectedCategory = newName;
+                                        newCatCtrl.clear();
+                                        isAddingCategory = false;
+                                      } else {
+                                        localError = err;
+                                      }
+                                    });
+                                  },
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFF16A34A),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  ),
+                                  child: isSubmitting
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                        )
+                                      : const Text('Créer'),
+                                ),
+                                const SizedBox(width: 6),
+                                IconButton(
+                                  onPressed: () => setDialogState(() {
+                                    isAddingCategory = false;
+                                    newCatCtrl.clear();
+                                  }),
+                                  icon: const Icon(Icons.close, size: 18),
+                                  tooltip: 'Annuler',
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 14),
+
+                    // ── URL Image ───────────────────────────────────────
+                    TextFormField(
+                      controller: imageCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'URL de l\'image (optionnel)',
+                        hintText: 'https://exemple.com/image.jpg',
+                        prefixIcon: const Icon(Icons.image_outlined),
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.preview_outlined),
+                          tooltip: 'Prévisualiser',
+                          onPressed: () {
+                            setDialogState(() {
+                              previewImageUrl = imageCtrl.text.trim().isNotEmpty
+                                  ? imageCtrl.text.trim()
+                                  : null;
+                            });
+                          },
+                        ),
+                      ),
+                      onChanged: (val) {
+                        // Prévisualisation live avec délai
+                        if (val.trim().startsWith('http')) {
+                          setDialogState(() => previewImageUrl = val.trim());
+                        } else if (val.trim().isEmpty) {
+                          setDialogState(() => previewImageUrl = null);
+                        }
+                      },
                     ),
-                    items: _categories
-                        .where((c) => c != 'Tous')
-                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                        .toList(),
-                    onChanged: (val) {
-                      if (val != null) setDialogState(() => selectedCategory = val);
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: imageCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'URL de l\'image (optionnel)',
-                      border: OutlineInputBorder(),
+                    const SizedBox(height: 4),
+                    const Padding(
+                      padding: EdgeInsets.only(left: 4),
+                      child: Text(
+                        'Collez une URL d\'image publique. Appuyez sur 👁 pour prévisualiser.',
+                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    title: const Text('Mettre en avant (Populaire)'),
-                    value: isPopular,
-                    onChanged: (val) => setDialogState(() => isPopular = val),
-                  ),
-                ],
+                    const SizedBox(height: 10),
+
+                    // ── Toggle Populaire ────────────────────────────────
+                    Container(
+                      decoration: BoxDecoration(
+                        color: isPopular ? const Color(0xFFFFFBEB) : null,
+                        borderRadius: BorderRadius.circular(8),
+                        border: isPopular ? Border.all(color: const Color(0xFFFBBF24)) : null,
+                      ),
+                      child: SwitchListTile(
+                        title: const Text('⭐ Mettre en avant (Populaire)'),
+                        subtitle: const Text(
+                          'Apparaît dans la section "Recommandés" chez les clients',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                        value: isPopular,
+                        onChanged: (val) => setDialogState(() => isPopular = val),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Annuler'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final name = nameCtrl.text.trim();
-                final price = double.tryParse(priceCtrl.text.trim()) ?? 0.0;
-                final time = int.tryParse(timeCtrl.text.trim()) ?? 20;
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+                child: const Text('Annuler'),
+              ),
+              FilledButton.icon(
+                icon: isSubmitting
+                    ? const SizedBox(
+                        width: 16, height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : Icon(isEditing ? Icons.save_outlined : Icons.check),
+                label: Text(isEditing ? 'Sauvegarder' : 'Ajouter le produit'),
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        final name = nameCtrl.text.trim();
+                        final price = double.tryParse(priceCtrl.text.trim().replaceAll(',', '.')) ?? 0.0;
+                        final time = int.tryParse(timeCtrl.text.trim()) ?? 20;
 
-                if (name.isEmpty || price <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Veuillez renseigner un nom et un prix valide.')),
-                  );
-                  return;
-                }
+                        // Validation
+                        if (name.isEmpty) {
+                          setDialogState(() => localError = 'Le nom du produit est requis.');
+                          return;
+                        }
+                        if (price <= 0) {
+                          setDialogState(() => localError = 'Veuillez saisir un prix valide (supérieur à 0).');
+                          return;
+                        }
+                        if (selectedCategory.isEmpty) {
+                          setDialogState(() => localError = 'Veuillez choisir une catégorie.');
+                          return;
+                        }
 
-                Navigator.pop(ctx);
+                        setDialogState(() {
+                          isSubmitting = true;
+                          localError = null;
+                        });
 
-                if (isEditing) {
-                  await _controller.updateProduct(
-                    id: product.id,
-                    name: name,
-                    description: descCtrl.text.trim(),
-                    price: price,
-                    category: selectedCategory,
-                    deliveryTimeMinutes: time,
-                    isPopular: isPopular,
-                    imageUrl: imageCtrl.text.trim(),
-                  );
-                } else {
-                  await _controller.addProduct(
-                    name: name,
-                    description: descCtrl.text.trim(),
-                    price: price,
-                    category: selectedCategory,
-                    deliveryTimeMinutes: time,
-                    isPopular: isPopular,
-                    imageUrl: imageCtrl.text.trim(),
-                  );
-                }
-              },
-              child: Text(isEditing ? 'Sauvegarder' : 'Ajouter'),
-            ),
-          ],
-        ),
+                        bool success;
+                        if (isEditing) {
+                          success = await _controller.updateProduct(
+                            id: product.id,
+                            name: name,
+                            description: descCtrl.text.trim(),
+                            price: price,
+                            category: selectedCategory,
+                            deliveryTimeMinutes: time,
+                            isPopular: isPopular,
+                            imageUrl: imageCtrl.text.trim(),
+                          );
+                        } else {
+                          success = await _controller.addProduct(
+                            name: name,
+                            description: descCtrl.text.trim(),
+                            price: price,
+                            category: selectedCategory,
+                            deliveryTimeMinutes: time,
+                            isPopular: isPopular,
+                            imageUrl: imageCtrl.text.trim(),
+                          );
+                        }
+
+                        if (!ctx.mounted) return;
+
+                        if (success) {
+                          Navigator.pop(ctx);
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Row(
+                                children: [
+                                  const Icon(Icons.check_circle, color: Colors.white),
+                                  const SizedBox(width: 10),
+                                  Text(isEditing
+                                      ? 'Produit "$name" modifié avec succès !'
+                                      : 'Produit "$name" ajouté dans la catégorie "$selectedCategory" !'),
+                                ],
+                              ),
+                              backgroundColor: const Color(0xFF16A34A),
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                        } else {
+                          setDialogState(() {
+                            isSubmitting = false;
+                            localError = _controller.errorMessage ??
+                                'Une erreur est survenue lors de l\'enregistrement.';
+                          });
+                        }
+                      },
+              ),
+            ],
+          );
+        },
       ),
     );
   }

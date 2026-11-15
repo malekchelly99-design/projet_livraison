@@ -38,15 +38,21 @@ class _ClientDashboardViewState extends State<ClientDashboardView> {
   final Set<String> _collapsedTrackingOrders = {};
   String _selectedHomeShopFilter = 'Toutes';
 
-  final List<Map<String, dynamic>> _categories = const [
-    {'name': 'Tous', 'icon': Icons.apps},
-    {'name': 'Restauration', 'icon': Icons.restaurant},
-    {'name': 'Pizzas & Fast-food', 'icon': Icons.local_pizza},
-    {'name': 'Épicerie', 'icon': Icons.local_grocery_store},
-    {'name': 'Boulangerie & Pâtisserie', 'icon': Icons.bakery_dining},
-    {'name': 'Boissons & Cafés', 'icon': Icons.local_cafe},
-    {'name': 'Pharmacie & Santé', 'icon': Icons.local_pharmacy},
-  ];
+  /// Catégories dynamiques : utilise Firestore via le controller, avec fallback statique
+  List<Map<String, dynamic>> get _categories {
+    final dynamic = _controller.dynamicCategories;
+    if (dynamic.length > 1) return dynamic; // Firestore chargé
+    // Fallback statique si Firestore pas encore chargé
+    return const [
+      {'name': 'Tous', 'icon': Icons.apps},
+      {'name': 'Restauration', 'icon': Icons.restaurant},
+      {'name': 'Pizzas & Fast-food', 'icon': Icons.local_pizza},
+      {'name': 'Épicerie', 'icon': Icons.local_grocery_store},
+      {'name': 'Boulangerie & Pâtisserie', 'icon': Icons.bakery_dining},
+      {'name': 'Boissons & Cafés', 'icon': Icons.local_cafe},
+      {'name': 'Pharmacie & Santé', 'icon': Icons.local_pharmacy},
+    ];
+  }
 
   @override
   void initState() {

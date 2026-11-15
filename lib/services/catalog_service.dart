@@ -19,13 +19,36 @@ class CatalogService {
     }).handleError((_) => <Product>[]);
   }
 
-  /// Écoute les catégories depuis Firestore.
+  /// Écoute les catégories depuis Firestore (triées par nom).
   Stream<List<CategoryModel>> watchCategories() {
-    return _categories.snapshots().map((snapshot) {
+    return _categories.orderBy('name').snapshots().map((snapshot) {
       return snapshot.docs
           .map((doc) => CategoryModel.fromMap(doc.id, doc.data()))
           .toList();
     }).handleError((_) => <CategoryModel>[]);
+  }
+
+  /// Récupère une seule fois les catégories depuis Firestore.
+  Future<List<CategoryModel>> getCategories() async {
+    try {
+      final snap = await _categories.orderBy('name').get();
+      return snap.docs.map((doc) => CategoryModel.fromMap(doc.id, doc.data())).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Ajoute une catégorie si elle n'existe pas déjà (vérification par nom, insensible à la casse).
+  Future<String> addCategoryIfNotExists(String name, {String icon = 'category', String description = ''}) async {
+    final nameLower = name.trim().toLowerCase();
+    final snap = await _categories.get();
+    for (final doc in snap.docs) {
+      final existing = (doc.data()['name'] as String? ?? '').trim().toLowerCase();
+      if (existing == nameLower) return doc.id; // déjà existante
+    }
+    final category = CategoryModel(id: '', name: name.trim(), icon: icon, description: description);
+    final docRef = await _categories.add(category.toMap());
+    return docRef.id;
   }
 
   /// Ajoute une catégorie.
