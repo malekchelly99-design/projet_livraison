@@ -1,0 +1,114 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===== FONCTIONS HELPER =====
+    
+    // Vérifie si l'utilisateur est authentifié
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Vérifie si l'utilisateur est admin
+    function isAdmin() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Vérifie si l'utilisateur accède à ses propres données
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+    
+    // ===== COLLECTION USERS =====
+    match /users/{userId} {
+      // Lecture: Tous les utilisateurs authentifiés (pour afficher les profils, contacts vendeur/livreur/client)
+      allow read: if isAuthenticated();
+      
+      // Création: Lors de l'inscription
+      allow create: if isAuthenticated() && isOwner(userId);
+      
+      // Mise à jour: Admin ou propriétaire
+      allow update: if isAuthenticated() && (isAdmin() || isOwner(userId));
+      
+      // Suppression: Admin uniquement
+      allow delete: if isAdmin();
+    }
+    
+    // ===== COLLECTION BOUTIQUES =====
+    match /boutiques/{boutiqueId} {
+      // Lecture: TOUS les utilisateurs authentifiés en permanence
+      allow read: if isAuthenticated();
+      
+      // Création et Mise à jour: Utilisateurs authentifiés (vendeur propriétaire ou admin)
+      allow create, update: if isAuthenticated();
+      
+      // Suppression: Admin uniquement
+      allow delete: if isAdmin();
+    }
+    
+    // ===== COLLECTION PRODUCTS =====
+    match /products/{productId} {
+      // Lecture: Tous les utilisateurs authentifiés
+      allow read: if isAuthenticated();
+      
+      // Création, mise à jour, suppression: Utilisateurs authentifiés
+      allow create, update, delete: if isAuthenticated();
+    }
+    
+    // ===== COLLECTION ORDERS =====
+    match /orders/{orderId} {
+      // Lecture: Tous les utilisateurs authentifiés (clients, vendeurs, livreurs, admin)
+      // Évite les rejets de requêtes globales .snapshots() sur la collection orders
+      allow read: if isAuthenticated();
+      
+      // Création et mise à jour: Utilisateurs authentifiés
+      allow create, update: if isAuthenticated();
+      
+      // Suppression: Admin uniquement
+      allow delete: if isAdmin();
+    }
+    
+    // ===== COLLECTION CATEGORIES =====
+    match /categories/{categoryId} {
+      // Lecture: Tous les utilisateurs authentifiés
+      allow read: if isAuthenticated();
+      
+      // Écriture: Utilisateurs authentifiés (initialisation et gestion admin)
+      allow write: if isAuthenticated();
+    }
+    
+    // ===== COLLECTION SETTINGS =====
+    match /settings/{settingId} {
+      // Lecture: Tous les utilisateurs authentifiés
+      allow read: if isAuthenticated();
+      
+      // Écriture: Utilisateurs authentifiés (initialisation et configuration)
+      allow write: if isAuthenticated();
+    }
+    
+    // ===== COLLECTION DE TEST =====
+    match /_test/{testId} {
+      // Lecture/Écriture: Tous les utilisateurs authentifiés (pour les tests de connexion)
+      allow read, write: if isAuthenticated();
+    }
+    
+    // ===== COLLECTION DELIVERY LOCATIONS (Géolocalisation du livreur en temps réel) =====
+    match /delivery_locations/{orderId} {
+      // Lecture et Écriture: Utilisateurs authentifiés (client de la commande, livreur, admin)
+      allow read, write: if isAuthenticated();
+    }
+
+    // ===== COLLECTION NOTIFICATIONS =====
+    match /notifications/{notificationId} {
+      // Lecture et Écriture ouvertes pour le temps réel sans blocage
+      allow read, write: if true;
+    }
+
+    // ===== BLOCAGE PAR DÉFAUT =====
+    // Toutes les autres collections sont bloquées par défaut
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
