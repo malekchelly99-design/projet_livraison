@@ -70,10 +70,23 @@ class RouteCoordinatesHelper {
     'sfax': const LatLng(34.7406, 10.7603),
     'nabeul': const LatLng(36.4561, 10.7376),
     'hammamet': const LatLng(36.4000, 10.6167),
+    'kelibia': const LatLng(36.8480, 11.0939),
+    'kélibia': const LatLng(36.8480, 11.0939),
+    'oued el khatf': const LatLng(36.8650, 11.0800),
+    'oued khatf': const LatLng(36.8650, 11.0800),
+    'haouaria': const LatLng(37.0500, 11.0167),
+    'el haouaria': const LatLng(37.0500, 11.0167),
+    'menzel temime': const LatLng(36.7825, 10.9903),
+    'korba': const LatLng(36.5786, 10.8586),
     'bizerte': const LatLng(37.2744, 9.8739),
     'monastir': const LatLng(35.7779, 10.8261),
+    'mahdia': const LatLng(35.5047, 11.0622),
     'kairouan': const LatLng(35.6781, 10.0963),
     'gabes': const LatLng(33.8815, 10.0982),
+    'djerba': const LatLng(33.8750, 10.8580),
+    'zarzis': const LatLng(33.5042, 11.1122),
+    'gafsa': const LatLng(34.4250, 8.7842),
+    'tozeur': const LatLng(33.9197, 8.1336),
   };
 
   /// Résout les coordonnées géographiques à partir d'une chaîne d'adresse
@@ -146,23 +159,25 @@ class RouteCoordinatesHelper {
         order.clientLatitude != 0.0 &&
         order.clientLongitude != null &&
         order.clientLongitude != 0.0) {
+      // ✅ Position GPS réelle du client enregistrée lors de la commande
       destPos = LatLng(order.clientLatitude!, order.clientLongitude!);
     } else {
       final resolved = resolveAddress(order.deliveryAddress);
       if (resolved != null) {
         destPos = resolved;
       } else {
-        // Décalage stable vers le nord-est
-        destPos = LatLng(courierPos.latitude + 0.012, courierPos.longitude + 0.011);
+        // ✅ Quand aucune coordonnée client n'est enregistrée et que les deux appareils
+        // (téléphone et PC) sont au même endroit pour le test, la position du client
+        // correspond exactement à celle du livreur / point de départ actuel
+        destPos = courierPos;
       }
     }
 
     // Si la boutique et la destination sont identiques (ex: même ville sans adresse précise),
-    // créer des points distincts réalistes pour visualiser le trajet
+    // créer un léger décalage visuel de la boutique uniquement pour visualiser le point de départ
     if ((vendorPos.latitude - destPos.latitude).abs() < 0.0001 &&
         (vendorPos.longitude - destPos.longitude).abs() < 0.0001) {
-      vendorPos = LatLng(vendorPos.latitude - 0.008, vendorPos.longitude - 0.007);
-      destPos = LatLng(destPos.latitude + 0.009, destPos.longitude + 0.008);
+      vendorPos = LatLng(vendorPos.latitude - 0.004, vendorPos.longitude - 0.004);
     }
 
     // Ajustement du livreur selon l'état de la commande si pas de GPS actif
@@ -170,16 +185,18 @@ class RouteCoordinatesHelper {
       if (order.status == OrderStatus.assigned) {
         // Livreur proche de la boutique
         courierPos = LatLng(
-          vendorPos.latitude + 0.002,
-          vendorPos.longitude + 0.002,
+          vendorPos.latitude + 0.001,
+          vendorPos.longitude + 0.001,
         );
       } else if (order.status == OrderStatus.pickedUp ||
           order.status == OrderStatus.delivering) {
-        // Livreur à mi-chemin entre la boutique et le client
-        courierPos = LatLng(
-          (vendorPos.latitude + destPos.latitude) / 2,
-          (vendorPos.longitude + destPos.longitude) / 2,
-        );
+        // Livreur à mi-chemin entre la boutique et le client (si points distincts)
+        if ((destPos.latitude - vendorPos.latitude).abs() > 0.0005) {
+          courierPos = LatLng(
+            (vendorPos.latitude + destPos.latitude) / 2,
+            (vendorPos.longitude + destPos.longitude) / 2,
+          );
+        }
       } else if (order.status == OrderStatus.delivered) {
         courierPos = destPos;
       }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../models/app_user.dart';
 import '../models/category_model.dart';
@@ -306,6 +307,58 @@ class ClientDashboardController extends BaseController {
   bool _isSubmittingOrder = false;
   bool get isSubmittingOrder => _isSubmittingOrder;
 
+  LatLng? _clientDeviceLocation;
+  LatLng? get clientDeviceLocation => _clientDeviceLocation;
+
+  bool _isLocating = false;
+  bool get isLocating => _isLocating;
+
+  /// Récupère la position GPS réelle du client sur son appareil (téléphone ou PC)
+  Future<LatLng?> fetchClientPosition({bool updateAddressText = false}) async {
+    _isLocating = true;
+    notifyListeners();
+    try {
+      final pos = await _trackingService.getCurrentPosition();
+      if (pos != null) {
+        _clientDeviceLocation = LatLng(pos.latitude, pos.longitude);
+        if (updateAddressText) {
+          addressCtrl.text = 'Position GPS (${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)})';
+        }
+        notifyListeners();
+        return _clientDeviceLocation;
+      }
+    } catch (e) {
+      debugPrint('[ClientDashboardController] Erreur récupération GPS client: $e');
+    } finally {
+      _isLocating = false;
+      notifyListeners();
+    }
+    return null;
+  }
+
+  /// Synchronise automatiquement la position GPS du client sur une commande existante si elle était manquante
+  Future<void> syncOrderClientLocation(OrderModel order) async {
+    if (order.clientLatitude != null &&
+        order.clientLongitude != null &&
+        order.clientLatitude != 0.0) {
+      return;
+    }
+    if (_clientDeviceLocation == null) {
+      await fetchClientPosition();
+    }
+    if (_clientDeviceLocation != null) {
+      try {
+        await FirebaseFirestore.instance.collection('orders').doc(order.id).update({
+          'clientLatitude': _clientDeviceLocation!.latitude,
+          'clientLongitude': _clientDeviceLocation!.longitude,
+        });
+        debugPrint('[ClientDashboardController] Commande ${order.id} synchronisée avec GPS client: ${_clientDeviceLocation!.latitude}, ${_clientDeviceLocation!.longitude}');
+      } catch (e) {
+        debugPrint('[ClientDashboardController] Erreur syncOrderClientLocation: $e');
+      }
+    }
+  }
+
   void initUserInfo(AppUser user) {
     if (addressCtrl.text.isEmpty) {
       final userAddress = (user.profile['address'] as String?) ??
@@ -325,6 +378,9 @@ class ClientDashboardController extends BaseController {
       userName: user.name.isNotEmpty ? user.name : 'Client',
       isVendor: false,
     );
+
+    // Détecter la position GPS de l'appareil en arrière-plan
+    fetchClientPosition();
   }
 
   Future<String?> placeOrder(AppUser user) async {
@@ -423,7 +479,33 @@ class ClientDashboardController extends BaseController {
         } catch (_) {}
       }
 
-      final clientCoords = RouteCoordinatesHelper.resolveAddress(address);
+      // ── Position GPS réelle du client ──
+      // Priorité 1: Position GPS déjà détectée sur cet appareil (téléphone ou PC)
+      double? clientLat = _clientDeviceLocation?.latitude;
+      double? clientLng = _clientDeviceLocation?.longitude;
+
+      // Priorité 2: Requête GPS en direct si pas encore en cache
+      if (clientLat == null || clientLng == null) {
+        try {
+          final pos = await _trackingService.getCurrentPosition();
+          if (pos != null) {
+            clientLat = pos.latitude;
+            clientLng = pos.longitude;
+            _clientDeviceLocation = LatLng(pos.latitude, pos.longitude);
+            debugPrint('[ClientDashboardController] Position GPS client: $clientLat, $clientLng');
+          }
+        } catch (e) {
+          debugPrint('[ClientDashboardController] GPS client indisponible: $e');
+        }
+      }
+
+      // Priorité 3: Fallback résolution de l'adresse textuelle si GPS non disponible
+      if (clientLat == null || clientLng == null) {
+        final clientCoordsFallback = RouteCoordinatesHelper.resolveAddress(address);
+        clientLat = clientCoordsFallback?.latitude;
+        clientLng = clientCoordsFallback?.longitude;
+      }
+
       final vendorCoords = RouteCoordinatesHelper.resolveAddress(
           vendorAddress.isNotEmpty ? vendorAddress : vendorName);
 
@@ -456,8 +538,8 @@ class ClientDashboardController extends BaseController {
         notes: notesCtrl.text.trim().isNotEmpty ? notesCtrl.text.trim() : null,
         vendorLatitude: vendorCoords?.latitude,
         vendorLongitude: vendorCoords?.longitude,
-        clientLatitude: clientCoords?.latitude,
-        clientLongitude: clientCoords?.longitude,
+        clientLatitude: clientLat,
+        clientLongitude: clientLng,
       );
 
       final orderId = await _orderService.createOrder(order);

@@ -219,11 +219,16 @@ class _LiveDeliveryMapState extends State<LiveDeliveryMap> {
                   ),
 
                   // 2. POINT CLIENT / DESTINATION
+                  // Si le livreur et le client sont au même endroit (ex: test sur téléphone et PC dans la même pièce),
+                  // on décale légèrement l'alignement pour que les deux étiquettes restent parfaitement visibles
                   Marker(
                     point: destPos,
                     width: 140,
                     height: 82,
-                    alignment: const Alignment(0.0, -0.6),
+                    alignment: ((courierPos.latitude - destPos.latitude).abs() < 0.0003 &&
+                            (courierPos.longitude - destPos.longitude).abs() < 0.0003)
+                        ? const Alignment(-0.65, -0.6)
+                        : const Alignment(0.0, -0.6),
                     child: _buildNamedPointMarker(
                       info: route.destinationPoint,
                       defaultBadgeIcon: Icons.home_rounded,
@@ -236,7 +241,10 @@ class _LiveDeliveryMapState extends State<LiveDeliveryMap> {
                     point: courierPos,
                     width: 150,
                     height: 86,
-                    alignment: const Alignment(0.0, -0.6),
+                    alignment: ((courierPos.latitude - destPos.latitude).abs() < 0.0003 &&
+                            (courierPos.longitude - destPos.longitude).abs() < 0.0003)
+                        ? const Alignment(0.65, -0.6)
+                        : const Alignment(0.0, -0.6),
                     child: _buildNamedCourierMarker(
                       info: route.courierPoint,
                       hasLiveGps: route.hasLiveGps,
@@ -572,6 +580,14 @@ class _LiveDeliveryMapState extends State<LiveDeliveryMap> {
         statusTitle = status.label;
     }
 
+    final isSameLocation =
+        (route.courierPoint.position.latitude - route.destinationPoint.position.latitude).abs() < 0.0003 &&
+        (route.courierPoint.position.longitude - route.destinationPoint.position.longitude).abs() < 0.0003;
+
+    if (isSameLocation && (status == OrderStatus.delivering || status == OrderStatus.pickedUp)) {
+      statusTitle = 'Livreur sur place (Même localisation)';
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -648,8 +664,10 @@ class _LiveDeliveryMapState extends State<LiveDeliveryMap> {
   }
 
   Widget _buildBottomInfoBar(DeliveryRouteResult route) {
-    final etaText =
-        'Arrivée : ~${route.etaInfo['formattedEta']} (${route.etaInfo['formattedDistance']})';
+    final isSameLocation = route.etaInfo['isSameLocation'] == true;
+    final etaText = isSameLocation
+        ? 'Arrivée : À destination / Même adresse (< 50 m)'
+        : 'Arrivée : ~${route.etaInfo['formattedEta']} (${route.etaInfo['formattedDistance']})';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

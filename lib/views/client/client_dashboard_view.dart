@@ -1897,14 +1897,58 @@ class _ClientDashboardViewState extends State<ClientDashboardView> {
             ),
             const SizedBox(height: 16),
 
-            // Adresse de livraison
-            TextFormField(
-              controller: _controller.addressCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Adresse de livraison *',
-                prefixIcon: Icon(Icons.location_on_outlined),
-                border: OutlineInputBorder(),
-              ),
+            // Adresse de livraison avec détection GPS en direct
+            ListenableBuilder(
+              listenable: _controller,
+              builder: (context, _) {
+                return TextFormField(
+                  controller: _controller.addressCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Adresse de livraison *',
+                    prefixIcon: const Icon(Icons.location_on_outlined),
+                    suffixIcon: _controller.isLocating
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : IconButton(
+                            icon: Icon(
+                              _controller.clientDeviceLocation != null
+                                  ? Icons.my_location
+                                  : Icons.location_searching,
+                              color: Colors.deepOrange,
+                            ),
+                            tooltip: 'Détecter ma position GPS actuelle',
+                            onPressed: () async {
+                              final loc = await _controller.fetchClientPosition(updateAddressText: true);
+                              if (context.mounted) {
+                                if (loc != null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('📍 Position GPS détectée avec succès !'),
+                                      backgroundColor: Colors.green,
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Impossible de récupérer le signal GPS. Vérifiez les autorisations.'),
+                                      backgroundColor: Colors.orange,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                    border: const OutlineInputBorder(),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 12),
 
@@ -2497,9 +2541,11 @@ class _ClientDashboardViewState extends State<ClientDashboardView> {
             child: StreamBuilder<CourierLocation?>(
               stream: _controller.watchCourierLocation(order.id),
               builder: (context, locSnap) {
+                _controller.syncOrderClientLocation(order);
                 return LiveDeliveryMap(
                   order: order,
                   location: locSnap.data,
+                  destinationLatLng: _controller.clientDeviceLocation,
                   height: 260,
                   onExpandFullScreen: () => _showLiveTrackingDialog(order),
                 );
@@ -2603,9 +2649,11 @@ class _ClientDashboardViewState extends State<ClientDashboardView> {
                         StreamBuilder<CourierLocation?>(
                           stream: _controller.watchCourierLocation(order.id),
                           builder: (context, locSnap) {
+                            _controller.syncOrderClientLocation(order);
                             return LiveDeliveryMap(
                               order: order,
                               location: locSnap.data,
+                              destinationLatLng: _controller.clientDeviceLocation,
                               height: 380,
                             );
                           },
@@ -2916,10 +2964,12 @@ class _ClientDashboardViewState extends State<ClientDashboardView> {
                   StreamBuilder<CourierLocation?>(
                     stream: _controller.watchCourierLocation(order.id),
                     builder: (context, snapshot) {
+                      _controller.syncOrderClientLocation(order);
                       final location = snapshot.data;
                       return LiveDeliveryMap(
                         order: order,
                         location: location,
+                        destinationLatLng: _controller.clientDeviceLocation,
                         height: 320,
                         onExpandFullScreen: () => _showLiveTrackingDialog(order),
                       );

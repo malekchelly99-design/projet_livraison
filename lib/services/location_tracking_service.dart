@@ -328,14 +328,19 @@ class LocationTrackingService {
     final travelMinutes = (distanceKm / averageSpeedKmH * 60).round();
     final etaMinutes = travelMinutes < 1 ? 1 : travelMinutes;
 
+    final isSameLocation = distanceInMeters < 50.0;
+
     return {
       'distanceMeters': distanceInMeters,
       'distanceKm': distanceKm,
-      'formattedDistance': distanceKm < 1.0
-          ? '${distanceInMeters.round()} m'
-          : '${distanceKm.toStringAsFixed(1)} km',
-      'etaMinutes': etaMinutes,
-      'formattedEta': '$etaMinutes min',
+      'isSameLocation': isSameLocation,
+      'formattedDistance': isSameLocation
+          ? 'Même position (< 50 m)'
+          : (distanceKm < 1.0
+              ? '${distanceInMeters.round()} m'
+              : '${distanceKm.toStringAsFixed(1)} km'),
+      'etaMinutes': isSameLocation ? 0 : etaMinutes,
+      'formattedEta': isSameLocation ? 'Sur place' : '$etaMinutes min',
     };
   }
 }
