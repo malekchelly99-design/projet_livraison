@@ -255,18 +255,37 @@ class RouteCoordinatesHelper {
       color: const Color(0xFF10B981), // Vert émeraude
     );
 
-    // Construction des segments de trajet
-    final completedSegment = <LatLng>[vendorPos, courierPos];
-    final remainingSegment = <LatLng>[courierPos, destPos];
-    final fullRoute = <LatLng>[vendorPos, courierPos, destPos];
+    // Construction des segments de trajet selon l'étape de la livraison
+    final bool isHeadingToVendor = order.status == OrderStatus.assigned;
+    final LatLng nextTarget = isHeadingToVendor ? vendorPos : destPos;
 
-    // Calcul ETA & distance restante jusqu'à la destination
+    final List<LatLng> completedSegment;
+    final List<LatLng> remainingSegment;
+    final List<LatLng> fullRoute;
+
+    if (isHeadingToVendor) {
+      // 1. Livreur -> Boutique (trajet en cours vers la boutique)
+      completedSegment = <LatLng>[courierPos, vendorPos];
+      // 2. Boutique -> Client (étape suivante prévue après retrait)
+      remainingSegment = <LatLng>[vendorPos, destPos];
+      fullRoute = <LatLng>[courierPos, vendorPos, destPos];
+    } else {
+      // 1. Boutique -> Livreur (trajet effectué)
+      completedSegment = <LatLng>[vendorPos, courierPos];
+      // 2. Livreur -> Client (trajet en cours vers le client)
+      remainingSegment = <LatLng>[courierPos, destPos];
+      fullRoute = <LatLng>[vendorPos, courierPos, destPos];
+    }
+
+    // Calcul ETA & distance restante jusqu'à la prochaine étape
     final etaInfo = LocationTrackingService.calculateDistanceAndEta(
       startLat: courierPos.latitude,
       startLng: courierPos.longitude,
-      endLat: destPos.latitude,
-      endLng: destPos.longitude,
+      endLat: nextTarget.latitude,
+      endLng: nextTarget.longitude,
     );
+    etaInfo['targetStage'] = isHeadingToVendor ? 'boutique' : 'client';
+    etaInfo['targetName'] = isHeadingToVendor ? vendorName : clientName;
 
     return DeliveryRouteResult(
       vendorPoint: vendorPoint,

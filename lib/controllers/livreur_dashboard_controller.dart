@@ -94,6 +94,18 @@ class LivreurDashboardController extends BaseController {
         courierName: courier.name,
         courierPhone: courier.phone,
       );
+
+      // ✅ Démarrage automatique du suivi GPS dès l'acceptation
+      // pour que le client puisse suivre le livreur pendant son trajet vers la boutique
+      try {
+        await _trackingService.startTracking(
+          courierId: courier.uid,
+          orderId: order.id,
+        );
+      } catch (e) {
+        // Ignorer si permission non accordée immédiatement
+      }
+
       _isProcessing = false;
       _currentTab = 2; // Basculer automatiquement vers l'onglet "Course active"
       notifyListeners();
@@ -105,11 +117,22 @@ class LivreurDashboardController extends BaseController {
     }
   }
 
-  Future<String?> confirmPickup(String orderId) async {
+  Future<String?> confirmPickup(String orderId, {String? courierId}) async {
     _isProcessing = true;
     notifyListeners();
     try {
       await _orderService.confirmPickup(orderId);
+
+      // ✅ S'assurer que le GPS continue à être partagé vers le client
+      if (courierId != null && !_trackingService.isTrackingActive) {
+        try {
+          await _trackingService.startTracking(
+            courierId: courierId,
+            orderId: orderId,
+          );
+        } catch (_) {}
+      }
+
       _isProcessing = false;
       notifyListeners();
       return null;

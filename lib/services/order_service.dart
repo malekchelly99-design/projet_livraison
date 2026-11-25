@@ -17,6 +17,14 @@ class OrderService {
     return docRef.id;
   }
 
+  /// Écoute une commande spécifique en temps réel.
+  Stream<OrderModel?> watchOrder(String orderId) {
+    return _orders.doc(orderId).snapshots().map((doc) {
+      if (!doc.exists || doc.data() == null) return null;
+      return OrderModel.fromMap(doc.id, doc.data()!);
+    });
+  }
+
   /// Écoute les commandes d'un client en temps réel.
   /// Le tri est fait côté client pour éviter d'exiger un index composite Firestore.
   Stream<List<OrderModel>> watchClientOrders(String clientId) {

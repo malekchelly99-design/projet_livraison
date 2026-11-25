@@ -1883,7 +1883,10 @@ class _LivreurDashboardViewState extends State<LivreurDashboardView> {
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 onPressed: () async {
-                  final err = await _controller.confirmPickup(order.id);
+                  final err = await _controller.confirmPickup(
+                    order.id,
+                    courierId: widget.user.uid,
+                  );
                   if (err != null) {
                     _showSnack(err, isError: true);
                   } else {

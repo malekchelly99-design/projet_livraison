@@ -655,6 +655,11 @@ class ClientDashboardController extends BaseController {
     return _orderService.watchClientOrders(clientId);
   }
 
+  /// Écoute une commande spécifique en temps réel
+  Stream<OrderModel?> watchOrder(String orderId) {
+    return _orderService.watchOrder(orderId);
+  }
+
   /// Écoute la position GPS en temps réel du livreur pour une commande spécifique
   Stream<CourierLocation?> watchCourierLocation(String orderId) {
     return _trackingService.watchCourierLocation(orderId);

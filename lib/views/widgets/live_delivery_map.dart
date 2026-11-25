@@ -41,6 +41,13 @@ class _LiveDeliveryMapState extends State<LiveDeliveryMap> {
   void initState() {
     super.initState();
     _mapController = MapController();
+    // Ajuster automatiquement la vue pour que Boutique, Livreur et Client soient visibles
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        final route = _getRouteResult();
+        _fitAllRoutePoints(route.fullRoute);
+      } catch (_) {}
+    });
   }
 
   CourierLocation? _getEffectiveLocation() {
@@ -82,6 +89,16 @@ class _LiveDeliveryMapState extends State<LiveDeliveryMap> {
 
     final route = _getRouteResult();
     final courierLatLng = route.courierPoint.position;
+
+    // Si le statut a changé (assigned -> pickedUp -> delivering), adapter la vue globale
+    if (oldWidget.order.status != widget.order.status) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        try {
+          _fitAllRoutePoints(route.fullRoute);
+        } catch (_) {}
+      });
+      return;
+    }
 
     if (_autoFollow) {
       if (_lastCenteredLocation == null ||
@@ -187,17 +204,21 @@ class _LiveDeliveryMapState extends State<LiveDeliveryMap> {
                     strokeWidth: 6.5,
                     color: Colors.white.withValues(alpha: 0.9),
                   ),
-                  // Segment Boutique -> Livreur (parcours effectué / en cours de collecte)
+                  // Segment 1 (vers la boutique si en cours d'assignation, ou depuis boutique si en livraison)
                   Polyline(
                     points: route.completedSegment,
                     strokeWidth: 4.5,
-                    color: const Color(0xFF6366F1), // Indigo
+                    color: widget.order.status == OrderStatus.assigned
+                        ? const Color(0xFFEA580C) // Orange vif car trajet actif vers la boutique
+                        : const Color(0xFF6366F1), // Indigo car étape préalable effectuée
                   ),
-                  // Segment Livreur -> Client (trajet en cours vers la destination)
+                  // Segment 2 (vers le client)
                   Polyline(
                     points: route.remainingSegment,
                     strokeWidth: 4.5,
-                    color: const Color(0xFFEA580C), // Orange vif
+                    color: widget.order.status == OrderStatus.assigned
+                        ? const Color(0xFF6366F1) // Indigo car étape suivante après la boutique
+                        : const Color(0xFFEA580C), // Orange vif car trajet actif vers le client
                   ),
                 ],
               ),
@@ -665,9 +686,16 @@ class _LiveDeliveryMapState extends State<LiveDeliveryMap> {
 
   Widget _buildBottomInfoBar(DeliveryRouteResult route) {
     final isSameLocation = route.etaInfo['isSameLocation'] == true;
+    final isHeadingToVendor = route.etaInfo['targetStage'] == 'boutique';
+    final targetLabel = isHeadingToVendor
+        ? 'Arrivée à la boutique'
+        : 'Arrivée chez vous';
+
     final etaText = isSameLocation
         ? 'Arrivée : À destination / Même adresse (< 50 m)'
-        : 'Arrivée : ~${route.etaInfo['formattedEta']} (${route.etaInfo['formattedDistance']})';
+        : (widget.order.status == OrderStatus.pickedUp
+            ? 'Colis récupéré • Prêt pour le départ vers votre adresse'
+            : '$targetLabel : ~${route.etaInfo['formattedEta']} (${route.etaInfo['formattedDistance']})');
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

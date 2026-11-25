@@ -2587,19 +2587,24 @@ class _ClientDashboardViewState extends State<ClientDashboardView> {
     );
   }
 
-  void _showLiveTrackingDialog(OrderModel order) {
+  void _showLiveTrackingDialog(OrderModel initialOrder) {
     showDialog(
       context: context,
       barrierDismissible: true,
       builder: (dialogCtx) {
-        return Dialog(
-          insetPadding: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800, maxHeight: 850),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+        return StreamBuilder<OrderModel?>(
+          stream: _controller.watchOrder(initialOrder.id),
+          initialData: initialOrder,
+          builder: (context, orderSnap) {
+            final order = orderSnap.data ?? initialOrder;
+            return Dialog(
+              insetPadding: const EdgeInsets.all(16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 800, maxHeight: 850),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                 // Header
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
@@ -2711,6 +2716,8 @@ class _ClientDashboardViewState extends State<ClientDashboardView> {
               ],
             ),
           ),
+        );
+          },
         );
       },
     );
