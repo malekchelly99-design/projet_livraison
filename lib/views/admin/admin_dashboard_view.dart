@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../controllers/admin_dashboard_controller.dart';
 import '../../models/app_user.dart';
 import '../../models/order_model.dart';
+import '../../models/reclamation_model.dart';
 import '../../models/user_role.dart';
 
 class AdminDashboardView extends StatefulWidget {
@@ -127,28 +128,43 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     )
                   : _buildCurrentTab(),
               bottomNavigationBar: NavigationBar(
-                selectedIndex: _controller.currentTab > 3 ? 0 : _controller.currentTab,
-                onDestinationSelected: _controller.setTab,
-                destinations: const [
-                  NavigationDestination(
+                selectedIndex: _controller.currentTab == 5
+                    ? 4
+                    : (_controller.currentTab > 3 ? 0 : _controller.currentTab),
+                onDestinationSelected: (idx) => _controller.setTab(idx == 4 ? 5 : idx),
+                destinations: [
+                  const NavigationDestination(
                     icon: Icon(Icons.dashboard_outlined),
                     selectedIcon: Icon(Icons.dashboard, color: Colors.deepOrange),
                     label: 'Aperçu',
                   ),
-                  NavigationDestination(
+                  const NavigationDestination(
                     icon: Icon(Icons.receipt_long_outlined),
                     selectedIcon: Icon(Icons.receipt_long, color: Colors.deepOrange),
                     label: 'Commandes',
                   ),
-                  NavigationDestination(
+                  const NavigationDestination(
                     icon: Icon(Icons.people_alt_outlined),
                     selectedIcon: Icon(Icons.people_alt, color: Colors.deepOrange),
                     label: 'Utilisateurs',
                   ),
-                  NavigationDestination(
+                  const NavigationDestination(
                     icon: Icon(Icons.storefront_outlined),
                     selectedIcon: Icon(Icons.storefront, color: Colors.deepOrange),
                     label: 'Boutiques',
+                  ),
+                  NavigationDestination(
+                    icon: Badge(
+                      isLabelVisible: _controller.pendingReclamationsCount > 0,
+                      label: Text('${_controller.pendingReclamationsCount}'),
+                      child: const Icon(Icons.support_agent_outlined),
+                    ),
+                    selectedIcon: Badge(
+                      isLabelVisible: _controller.pendingReclamationsCount > 0,
+                      label: Text('${_controller.pendingReclamationsCount}'),
+                      child: const Icon(Icons.support_agent, color: Colors.deepOrange),
+                    ),
+                    label: 'Réclamations',
                   ),
                 ],
               ),
@@ -171,6 +187,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         return 'Boutiques & Vendeurs';
       case 4:
         return 'Flotte de Livreurs';
+      case 5:
+        return 'Suivi des Réclamations';
       default:
         return 'Administration';
     }
@@ -355,6 +373,16 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   badgeText: '${_controller.users.length}',
                 ),
                 _buildSidebarItem(3, Icons.storefront_outlined, Icons.storefront, 'Boutiques & Vendeurs'),
+                _buildSidebarItem(4, Icons.delivery_dining_outlined, Icons.delivery_dining, 'Flotte Livreurs'),
+                _buildSidebarItem(
+                  5,
+                  Icons.support_agent_outlined,
+                  Icons.support_agent,
+                  'Réclamations',
+                  badgeText: _controller.pendingReclamationsCount > 0
+                      ? '${_controller.pendingReclamationsCount}'
+                      : null,
+                ),
               ],
             ),
           ),
@@ -509,6 +537,16 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   _buildSidebarItem(1, Icons.receipt_long_outlined, Icons.receipt_long, 'Commandes'),
                   _buildSidebarItem(2, Icons.people_alt_outlined, Icons.people_alt, 'Utilisateurs'),
                   _buildSidebarItem(3, Icons.storefront_outlined, Icons.storefront, 'Boutiques & Vendeurs'),
+                  _buildSidebarItem(4, Icons.delivery_dining_outlined, Icons.delivery_dining, 'Flotte Livreurs'),
+                  _buildSidebarItem(
+                    5,
+                    Icons.support_agent_outlined,
+                    Icons.support_agent,
+                    'Réclamations',
+                    badgeText: _controller.pendingReclamationsCount > 0
+                        ? '${_controller.pendingReclamationsCount}'
+                        : null,
+                  ),
                 ],
               ),
             ),
@@ -531,6 +569,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         return _buildVendorsTab();
       case 4:
         return _buildCouriersTab();
+      case 5:
+        return _buildReclamationsTab();
       default:
         return _buildOverviewTab();
     }
@@ -653,6 +693,51 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 ],
               ),
               SizedBox(height: sectionSpacing),
+
+              // Alerte réclamations en attente
+              if (_controller.pendingReclamationsCount > 0) ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFFECACA)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${_controller.pendingReclamationsCount} réclamation(s) client en attente de traitement !',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF991B1B)),
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              'Des clients ont signalé un litige ou un problème avec une commande ou boutique.',
+                              style: TextStyle(fontSize: 12, color: Color(0xFFB91C1C)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        ),
+                        onPressed: () => _controller.setTab(5),
+                        child: const Text('Traiter'),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: sectionSpacing),
+              ],
 
               // Statut des commandes & actions rapides
               if (isWide)
@@ -2232,6 +2317,630 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       child: Text(
         role.name.toUpperCase(),
         style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: text),
+      ),
+    );
+  }
+
+  // =========================================================================
+  // TAB 5 : GESTION & SUIVI DES RÉCLAMATIONS
+  // =========================================================================
+  Widget _buildReclamationsTab() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 800;
+        final screenPadding = isWide ? 24.0 : 16.0;
+
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(screenPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // En-tête
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Suivi des Réclamations & Litiges',
+                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Supervisez l\'ensemble des signalements clients, litiges boutiques et problèmes de livraison.',
+                          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_controller.pendingReclamationsCount > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.notification_important, size: 16, color: Colors.red),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${_controller.pendingReclamationsCount} en attente',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // KPI Réclamations
+              GridView.count(
+                crossAxisCount: isWide ? 4 : 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: isWide ? 2.2 : 1.4,
+                children: [
+                  _buildReclamationKpiCard(
+                    title: 'Total Réclamations',
+                    count: _controller.reclamations.length,
+                    icon: Icons.support_agent,
+                    color: Colors.indigo,
+                  ),
+                  _buildReclamationKpiCard(
+                    title: 'En attente',
+                    count: _controller.pendingReclamationsCount,
+                    icon: Icons.hourglass_top,
+                    color: Colors.orange,
+                  ),
+                  _buildReclamationKpiCard(
+                    title: 'En cours',
+                    count: _controller.reclamations.where((r) => r.status == ReclamationStatus.enCours).length,
+                    icon: Icons.sync,
+                    color: Colors.blue,
+                  ),
+                  _buildReclamationKpiCard(
+                    title: 'Résolues',
+                    count: _controller.reclamations.where((r) => r.status == ReclamationStatus.resolue).length,
+                    icon: Icons.check_circle_outline,
+                    color: Colors.green,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Barre de recherche
+              TextField(
+                onChanged: _controller.setReclamationSearchQuery,
+                decoration: InputDecoration(
+                  hintText: 'Rechercher par client, boutique, objet, n° commande, description...',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _controller.reclamationSearchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () => _controller.setReclamationSearchQuery(''),
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Filtres statut
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildAdminReclamationFilterChip('Toutes', null, _controller.reclamations.length),
+                    _buildAdminReclamationFilterChip(
+                      'En attente',
+                      ReclamationStatus.enAttente,
+                      _controller.reclamations.where((r) => r.status == ReclamationStatus.enAttente).length,
+                    ),
+                    _buildAdminReclamationFilterChip(
+                      'En cours',
+                      ReclamationStatus.enCours,
+                      _controller.reclamations.where((r) => r.status == ReclamationStatus.enCours).length,
+                    ),
+                    _buildAdminReclamationFilterChip(
+                      'Résolues',
+                      ReclamationStatus.resolue,
+                      _controller.reclamations.where((r) => r.status == ReclamationStatus.resolue).length,
+                    ),
+                    _buildAdminReclamationFilterChip(
+                      'Rejetées',
+                      ReclamationStatus.rejetee,
+                      _controller.reclamations.where((r) => r.status == ReclamationStatus.rejetee).length,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Liste
+              if (_controller.filteredReclamations.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(40),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(Icons.assignment_turned_in_outlined, size: 56, color: Colors.grey.shade400),
+                      const SizedBox(height: 14),
+                      const Text(
+                        'Aucune réclamation trouvée',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _controller.reclamations.isEmpty
+                            ? 'Aucune réclamation n\'a été soumise pour le moment.'
+                            : 'Aucune réclamation ne correspond à votre recherche ou filtre.',
+                        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _controller.filteredReclamations.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 14),
+                  itemBuilder: (context, index) {
+                    final rec = _controller.filteredReclamations[index];
+                    return _buildAdminReclamationCard(rec);
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildReclamationKpiCard({
+    required String title,
+    required int count,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withAlpha(25),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('$count', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+                const SizedBox(height: 2),
+                Text(title, style: TextStyle(fontSize: 11, color: Colors.grey.shade600), maxLines: 1),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdminReclamationFilterChip(String label, ReclamationStatus? status, int count) {
+    final isSelected = _controller.selectedReclamationStatus == status;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text('$label ($count)'),
+        selected: isSelected,
+        onSelected: (_) => _controller.setReclamationStatusFilter(status),
+        selectedColor: Colors.deepOrange.withAlpha(25),
+        checkmarkColor: Colors.deepOrange,
+        labelStyle: TextStyle(
+          color: isSelected ? Colors.deepOrange : const Color(0xFF334155),
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdminReclamationCard(ReclamationModel rec) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(5),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  rec.category,
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (rec.priority == 'Haute' || rec.priority == 'Urgente')
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Priorité ${rec.priority}',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red.shade700),
+                  ),
+                ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: rec.status.color.withAlpha(25),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: rec.status.color.withAlpha(80)),
+                ),
+                child: Text(
+                  rec.status.label,
+                  style: TextStyle(color: rec.status.color, fontWeight: FontWeight.bold, fontSize: 11),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            rec.subject,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            rec.description,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF334155), height: 1.35),
+          ),
+          const SizedBox(height: 12),
+
+          // Parties prenantes (Client, Boutique, Commande)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.person_outline, size: 14, color: Colors.blue),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              'Client : ${rec.clientName} (${rec.clientPhone.isNotEmpty ? rec.clientPhone : rec.clientEmail})',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (rec.vendorName != null && rec.vendorName!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.storefront_outlined, size: 14, color: Colors.purple),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                'Boutique : ${rec.vendorName}',
+                                style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (rec.orderId != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Text(
+                      'Cmd #${rec.orderId!.length >= 6 ? rec.orderId!.substring(0, 6).toUpperCase() : rec.orderId!}',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.deepOrange),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // Réponse existante
+          if (rec.response != null && rec.response!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFBBF7D0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.check_circle_outline, size: 16, color: Color(0xFF16A34A)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Réponse de ${rec.respondedBy ?? "Support"} :',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF15803D)),
+                        ),
+                      ),
+                      if (rec.respondedAt != null)
+                        Text(
+                          '${rec.respondedAt!.day.toString().padLeft(2, '0')}/${rec.respondedAt!.month.toString().padLeft(2, '0')}/${rec.respondedAt!.year}',
+                          style: const TextStyle(fontSize: 10, color: Color(0xFF16A34A)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    rec.response!,
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF166534), height: 1.3),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+
+          // Bas de carte et bouton d'action
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Créée le ${rec.createdAt.day.toString().padLeft(2, '0')}/${rec.createdAt.month.toString().padLeft(2, '0')}/${rec.createdAt.year} à ${rec.createdAt.hour.toString().padLeft(2, '0')}:${rec.createdAt.minute.toString().padLeft(2, '0')}',
+                style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepOrange,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                ),
+                icon: const Icon(Icons.edit_note, size: 16),
+                label: Text(rec.response != null ? 'Modifier décision' : 'Traiter / Arbitrer'),
+                onPressed: () => _showAdminReclamationDialog(rec),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAdminReclamationDialog(ReclamationModel rec) {
+    final responseController = TextEditingController(text: rec.response ?? '');
+    ReclamationStatus selectedStatus =
+        rec.status == ReclamationStatus.enAttente ? ReclamationStatus.resolue : rec.status;
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.gavel, color: Colors.deepOrange, size: 22),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Arbitrage & Traitement Administrateur',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: SizedBox(
+                width: 480,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Client : ${rec.clientName} (${rec.clientPhone.isNotEmpty ? rec.clientPhone : rec.clientEmail})',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          if (rec.vendorName != null) ...[
+                            const SizedBox(height: 2),
+                            Text('Boutique : ${rec.vendorName}',
+                                style: const TextStyle(fontSize: 12, color: Colors.purple, fontWeight: FontWeight.w600)),
+                          ],
+                          if (rec.orderId != null) ...[
+                            const SizedBox(height: 2),
+                            Text('Commande : #${rec.orderId}',
+                                style: const TextStyle(fontSize: 12, color: Colors.deepOrange, fontWeight: FontWeight.w600)),
+                          ],
+                          const SizedBox(height: 6),
+                          Text('Objet : ${rec.subject}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 2),
+                          Text(rec.description, style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Décision / Statut', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<ReclamationStatus>(
+                      value: selectedStatus,
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: ReclamationStatus.enAttente, child: Text('En attente')),
+                        DropdownMenuItem(value: ReclamationStatus.enCours, child: Text('En cours d\'instruction')),
+                        DropdownMenuItem(value: ReclamationStatus.resolue, child: Text('Résolue (en faveur du client / accord)')),
+                        DropdownMenuItem(value: ReclamationStatus.rejetee, child: Text('Rejetée')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setDialogState(() => selectedStatus = val);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Réponse officielle / Décision transmise au client',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: responseController,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        hintText: 'Saisissez la décision administrative et la solution apportée...',
+                        contentPadding: const EdgeInsets.all(12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSaving ? null : () => Navigator.of(dialogCtx).pop(),
+                child: const Text('Fermer'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepOrange,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                ),
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        final text = responseController.text.trim();
+                        if (text.isEmpty && selectedStatus == rec.status) {
+                          Navigator.of(dialogCtx).pop();
+                          return;
+                        }
+                        setDialogState(() => isSaving = true);
+                        try {
+                          if (text.isNotEmpty) {
+                            await _controller.respondToReclamation(
+                              reclamationId: rec.id,
+                              response: text,
+                              newStatus: selectedStatus,
+                            );
+                          } else {
+                            await _controller.updateReclamationStatus(
+                              reclamationId: rec.id,
+                              newStatus: selectedStatus,
+                            );
+                          }
+                          if (!mounted) return;
+                          Navigator.of(dialogCtx).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Réclamation et arbitrage enregistrés.'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        } catch (e) {
+                          setDialogState(() => isSaving = false);
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+                          );
+                        }
+                      },
+                child: isSaving
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Enregistrer la décision'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

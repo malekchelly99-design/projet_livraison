@@ -9,11 +9,13 @@ import '../models/courier_location.dart';
 import '../models/notification_model.dart';
 import '../models/order_model.dart';
 import '../models/product.dart';
+import '../models/reclamation_model.dart';
 import '../services/boutique_service.dart';
 import '../services/catalog_service.dart';
 import '../services/location_tracking_service.dart';
 import '../services/notification_service.dart';
 import '../services/order_service.dart';
+import '../services/reclamation_service.dart';
 import '../services/user_service.dart';
 import '../utils/category_matcher.dart';
 import '../utils/route_coordinates_helper.dart';
@@ -25,6 +27,7 @@ class ClientDashboardController extends BaseController {
   final UserService _userService;
   final LocationTrackingService _trackingService;
   final BoutiqueService _boutiqueService;
+  final ReclamationService _reclamationService;
 
   ClientDashboardController({
     CatalogService? catalogService,
@@ -32,11 +35,13 @@ class ClientDashboardController extends BaseController {
     UserService? userService,
     LocationTrackingService? trackingService,
     BoutiqueService? boutiqueService,
+    ReclamationService? reclamationService,
   })  : _catalogService = catalogService ?? CatalogService(),
         _orderService = orderService ?? OrderService(),
         _userService = userService ?? UserService(),
         _trackingService = trackingService ?? LocationTrackingService(),
-        _boutiqueService = boutiqueService ?? BoutiqueService() {
+        _boutiqueService = boutiqueService ?? BoutiqueService(),
+        _reclamationService = reclamationService ?? ReclamationService() {
     _initCatalog();
     _initCategories();
   }
@@ -379,6 +384,9 @@ class ClientDashboardController extends BaseController {
       isVendor: false,
     );
 
+    // S'assurer que la collection 'reclamations' existe dans Firestore
+    _reclamationService.ensureTableExists();
+
     // Détecter la position GPS de l'appareil en arrière-plan
     fetchClientPosition();
   }
@@ -667,6 +675,15 @@ class ClientDashboardController extends BaseController {
 
   Future<void> cancelOrder(String orderId) async {
     await _orderService.updateStatus(orderId, OrderStatus.cancelled);
+  }
+
+  // --- RÉCLAMATIONS CLIENT ---
+  Stream<List<ReclamationModel>> watchMyReclamations(String clientId) {
+    return _reclamationService.watchClientReclamations(clientId);
+  }
+
+  Future<String> submitReclamation(ReclamationModel reclamation) async {
+    return await _reclamationService.createReclamation(reclamation);
   }
 
   // --- PROFIL ---

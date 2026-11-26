@@ -7,6 +7,7 @@ import '../../models/app_user.dart';
 import '../../models/courier_location.dart';
 import '../../models/order_model.dart';
 import '../../models/product.dart';
+import '../../models/reclamation_model.dart';
 import '../../services/notification_service.dart';
 import '../widgets/live_delivery_map.dart';
 import '../widgets/notification_bell_button.dart';
@@ -2186,6 +2187,42 @@ class _ClientDashboardViewState extends State<ClientDashboardView> {
             ),
             const SizedBox(height: 12),
 
+            // Raccourcis Réclamations
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepOrange.shade50,
+                      foregroundColor: Colors.deepOrange,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: Colors.deepOrange.shade200),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                    ),
+                    icon: const Icon(Icons.support_agent, size: 20),
+                    label: const Text('Mes réclamations', style: TextStyle(fontWeight: FontWeight.bold)),
+                    onPressed: _showMyReclamationsModal,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.grey.shade800,
+                    side: BorderSide(color: Colors.grey.shade300),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                  ),
+                  icon: const Icon(Icons.add_circle_outline, size: 18),
+                  label: const Text('Nouvelle'),
+                  onPressed: () => _showCreateReclamationDialog(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
             // Chips de filtrage par statut
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -2422,12 +2459,12 @@ class _ClientDashboardViewState extends State<ClientDashboardView> {
                     ],
                   ),
                 ),
-                if (order.status == OrderStatus.pending)
+                if (order.status == OrderStatus.pending) ...[
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.red,
                       side: const BorderSide(color: Colors.red),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     ),
                     icon: const Icon(Icons.cancel_outlined, size: 16),
                     label: const Text('Annuler'),
@@ -2439,6 +2476,18 @@ class _ClientDashboardViewState extends State<ClientDashboardView> {
                       );
                     },
                   ),
+                  const SizedBox(width: 8),
+                ],
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.deepOrange,
+                    side: BorderSide(color: Colors.deepOrange.shade300),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  ),
+                  icon: const Icon(Icons.report_problem_outlined, size: 16),
+                  label: const Text('Réclamation'),
+                  onPressed: () => _showCreateReclamationDialog(order: order),
+                ),
               ],
             ),
           ],
@@ -3258,6 +3307,352 @@ class _ClientDashboardViewState extends State<ClientDashboardView> {
               onPressed: _showLogoutDialog,
               icon: const Icon(Icons.logout),
               label: const Text('Se déconnecter'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── RÉCLAMATIONS ─────────────────────────────────────────────────────────
+
+  void _showCreateReclamationDialog({OrderModel? order}) {
+    final formKey = GlobalKey<FormState>();
+    final subjectController = TextEditingController();
+    final descController = TextEditingController();
+    String selectedCategory = 'Livraison';
+    String selectedPriority = 'normale';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setStateDialog) => AlertDialog(
+          title: const Text('Nouvelle réclamation', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (order != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.deepOrange.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.receipt_long, color: Colors.deepOrange, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text('Commande #${order.id.substring(0, 8).toUpperCase()}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  const Text('Catégorie', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: selectedCategory,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    items: ['Livraison', 'Produit', 'Paiement', 'Service client', 'Autre']
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                        .toList(),
+                    onChanged: (v) => setStateDialog(() => selectedCategory = v!),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('Priorité', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: selectedPriority,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'basse', child: Text('🟢 Basse')),
+                      DropdownMenuItem(value: 'normale', child: Text('🔵 Normale')),
+                      DropdownMenuItem(value: 'haute', child: Text('🟠 Haute')),
+                      DropdownMenuItem(value: 'urgente', child: Text('🔴 Urgente')),
+                    ],
+                    onChanged: (v) => setStateDialog(() => selectedPriority = v!),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('Sujet', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: subjectController,
+                    decoration: InputDecoration(
+                      hintText: 'Résumez votre problème…',
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Champ obligatoire' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('Description', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: descController,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      hintText: 'Décrivez votre réclamation en détail…',
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Champ obligatoire' : null,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Annuler')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange, foregroundColor: Colors.white),
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+                // Désactiver le bouton pendant l'envoi
+                setStateDialog(() {});
+                try {
+                  final rec = ReclamationModel(
+                    clientId: widget.user.uid,
+                    clientName: widget.user.name,
+                    clientPhone: widget.user.phone,
+                    clientEmail: widget.user.email,
+                    orderId: order?.id,
+                    vendorId: order?.vendorId,
+                    vendorName: order?.vendorName ?? '',
+                    subject: subjectController.text.trim(),
+                    description: descController.text.trim(),
+                    category: selectedCategory,
+                    priority: selectedPriority,
+                    createdAt: DateTime.now(),
+                  );
+                  await _controller.submitReclamation(rec);
+                  if (!ctx.mounted) return;
+                  Navigator.of(ctx).pop();
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Réclamation envoyée avec succès !'),
+                      backgroundColor: Colors.green,
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                } catch (e) {
+                  if (!ctx.mounted) return;
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(
+                      content: Text('❌ Erreur : $e'),
+                      backgroundColor: Colors.red,
+                      duration: const Duration(seconds: 5),
+                    ),
+                  );
+                }
+              },
+              child: const Text('Envoyer'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showMyReclamationsModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        builder: (ctx, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                child: Row(
+                  children: [
+                    const Icon(Icons.support_agent, color: Colors.deepOrange),
+                    const SizedBox(width: 10),
+                    const Text('Mes réclamations', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () { Navigator.of(ctx).pop(); _showCreateReclamationDialog(); },
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Nouvelle'),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: StreamBuilder<List<ReclamationModel>>(
+                  stream: _controller.watchMyReclamations(widget.user.uid),
+                  builder: (context, snap) {
+                    if (snap.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final recs = snap.data ?? [];
+                    if (recs.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade300),
+                            const SizedBox(height: 12),
+                            Text('Aucune réclamation', style: TextStyle(color: Colors.grey.shade500, fontSize: 16)),
+                          ],
+                        ),
+                      );
+                    }
+                    return ListView.separated(
+                      controller: scrollController,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: recs.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (_, i) => _buildClientReclamationCard(recs[i]),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildClientReclamationCard(ReclamationModel rec) {
+    final statusColors = {
+      ReclamationStatus.enAttente: Colors.orange,
+      ReclamationStatus.enCours: Colors.blue,
+      ReclamationStatus.resolue: Colors.green,
+      ReclamationStatus.rejetee: Colors.red,
+    };
+    final statusLabels = {
+      ReclamationStatus.enAttente: 'En attente',
+      ReclamationStatus.enCours: 'En cours',
+      ReclamationStatus.resolue: 'Résolue',
+      ReclamationStatus.rejetee: 'Rejetée',
+    };
+    final priorityColors = {
+      'urgente': Colors.red,
+      'haute': Colors.orange,
+      'normale': Colors.blue,
+      'basse': Colors.green,
+    };
+
+    final color = statusColors[rec.status] ?? Colors.grey;
+    final label = statusLabels[rec.status] ?? '—';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.08),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(rec.category, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
+                  child: Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(rec.subject, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                const SizedBox(height: 4),
+                if (rec.orderId != null)
+                  Text('Commande #${rec.orderId!.substring(0, 8).toUpperCase()}',
+                      style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                const SizedBox(height: 8),
+                Text(rec.description, style: TextStyle(color: Colors.grey.shade700, fontSize: 13), maxLines: 3, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.access_time, size: 13, color: Colors.grey.shade400),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${rec.createdAt.day}/${rec.createdAt.month}/${rec.createdAt.year}',
+                      style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: (priorityColors[rec.priority] ?? Colors.grey).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(rec.priority, style: TextStyle(fontSize: 11, color: priorityColors[rec.priority] ?? Colors.grey, fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+                if (rec.response != null && rec.response!.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.chat_bubble_outline, size: 16, color: Colors.green),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(rec.response!, style: const TextStyle(fontSize: 13, color: Colors.green))),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],

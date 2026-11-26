@@ -105,6 +105,12 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // ===== COLLECTION RECLAMATIONS (Gestion des réclamations client/vendeur/admin) =====
+    match /reclamations/{reclamationId} {
+      // Lecture et Écriture: Tous les utilisateurs authentifiés
+      allow read, write: if isAuthenticated();
+    }
+
     // ===== BLOCAGE PAR DÉFAUT =====
     // Toutes les autres collections sont bloquées par défaut
     match /{document=**} {

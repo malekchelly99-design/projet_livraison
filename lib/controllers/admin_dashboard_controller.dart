@@ -3,10 +3,12 @@ import 'package:flutter/foundation.dart';
 import '../models/app_user.dart';
 import '../models/order_model.dart';
 import '../models/product.dart';
+import '../models/reclamation_model.dart';
 import '../models/user_role.dart';
 import '../services/boutique_service.dart';
 import '../services/catalog_service.dart';
 import '../services/order_service.dart';
+import '../services/reclamation_service.dart';
 import '../services/user_service.dart';
 import 'base_controller.dart';
 
@@ -16,10 +18,12 @@ class AdminDashboardController extends BaseController {
   final OrderService _orderService;
   final CatalogService _catalogService;
   final BoutiqueService _boutiqueService;
+  final ReclamationService _reclamationService;
 
   StreamSubscription<List<AppUser>>? _usersSub;
   StreamSubscription<List<OrderModel>>? _ordersSub;
   StreamSubscription<List<Product>>? _productsSub;
+  StreamSubscription<List<ReclamationModel>>? _reclamationsSub;
 
   int _currentTab = 0;
   int get currentTab => _currentTab;
@@ -32,6 +36,11 @@ class AdminDashboardController extends BaseController {
 
   List<Product> _products = [];
   List<Product> get products => _products;
+
+  List<ReclamationModel> _reclamations = [];
+  List<ReclamationModel> get reclamations => _reclamations;
+  int get pendingReclamationsCount =>
+      _reclamations.where((r) => r.status == ReclamationStatus.enAttente).length;
 
   bool _isLoading = true;
   bool get isLoading => _isLoading;
@@ -53,16 +62,44 @@ class AdminDashboardController extends BaseController {
   String _userSearchQuery = '';
   String get userSearchQuery => _userSearchQuery;
 
+  // Filtres Réclamations
+  ReclamationStatus? _selectedReclamationStatus;
+  ReclamationStatus? get selectedReclamationStatus => _selectedReclamationStatus;
+
+  String _reclamationSearchQuery = '';
+  String get reclamationSearchQuery => _reclamationSearchQuery;
+
+  List<ReclamationModel> get filteredReclamations {
+    return _reclamations.where((r) {
+      if (_selectedReclamationStatus != null && r.status != _selectedReclamationStatus) {
+        return false;
+      }
+      if (_reclamationSearchQuery.isNotEmpty) {
+        final q = _reclamationSearchQuery;
+        final matchClient = r.clientName.toLowerCase().contains(q);
+        final matchVendor = (r.vendorName ?? '').toLowerCase().contains(q);
+        final matchSubject = r.subject.toLowerCase().contains(q);
+        final matchDesc = r.description.toLowerCase().contains(q);
+        final matchOrder = r.orderId?.toLowerCase().contains(q) ?? false;
+        final matchCat = r.category.toLowerCase().contains(q);
+        return matchClient || matchVendor || matchSubject || matchDesc || matchOrder || matchCat;
+      }
+      return true;
+    }).toList();
+  }
+
   AdminDashboardController({
     required this.user,
     UserService? userService,
     OrderService? orderService,
     CatalogService? catalogService,
     BoutiqueService? boutiqueService,
+    ReclamationService? reclamationService,
   })  : _userService = userService ?? UserService(),
         _orderService = orderService ?? OrderService(),
         _catalogService = catalogService ?? CatalogService(),
-        _boutiqueService = boutiqueService ?? BoutiqueService() {
+        _boutiqueService = boutiqueService ?? BoutiqueService(),
+        _reclamationService = reclamationService ?? ReclamationService() {
     _initSubscriptions();
   }
 
@@ -120,6 +157,50 @@ class AdminDashboardController extends BaseController {
         _isLoading = false;
         notifyListeners();
       },
+    );
+
+    _reclamationsSub = _reclamationService.watchAllReclamations().listen(
+      (list) {
+        _reclamations = list;
+        notifyListeners();
+      },
+      onError: (err) {
+        debugPrint('[AdminController] Erreur réclamations: $err');
+      },
+    );
+  }
+
+  // Setters de filtres
+  void setReclamationStatusFilter(ReclamationStatus? status) {
+    _selectedReclamationStatus = status;
+    notifyListeners();
+  }
+
+  void setReclamationSearchQuery(String query) {
+    _reclamationSearchQuery = query.trim().toLowerCase();
+    notifyListeners();
+  }
+
+  Future<void> respondToReclamation({
+    required String reclamationId,
+    required String response,
+    ReclamationStatus newStatus = ReclamationStatus.resolue,
+  }) async {
+    await _reclamationService.respondToReclamation(
+      reclamationId: reclamationId,
+      response: response,
+      responderName: 'Administration (${user.name})',
+      newStatus: newStatus,
+    );
+  }
+
+  Future<void> updateReclamationStatus({
+    required String reclamationId,
+    required ReclamationStatus newStatus,
+  }) async {
+    await _reclamationService.updateStatus(
+      reclamationId: reclamationId,
+      newStatus: newStatus,
     );
   }
 
@@ -312,6 +393,7 @@ class AdminDashboardController extends BaseController {
     _usersSub?.cancel();
     _ordersSub?.cancel();
     _productsSub?.cancel();
+    _reclamationsSub?.cancel();
     super.dispose();
   }
 }

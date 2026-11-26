@@ -50,6 +50,9 @@ class DatabaseInitService {
 
       // 4. Initialisation de la table 'notifications' pour qu'elle soit visible dans la console Firebase
       await ensureNotificationsTable();
+
+      // 5. Initialisation de la table 'reclamations' pour qu'elle soit visible dans la console Firebase
+      await ensureReclamationsTable();
     } catch (e) {
       // Silencieux au démarrage si l'utilisateur n'est pas encore connecté
       print('ℹ️  Initialisation Firestore (différée après connexion): $e');
@@ -68,6 +71,30 @@ class DatabaseInitService {
           'type': 'info',
           'isRead': true,
           'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (_) {}
+  }
+
+  /// S'assure que la collection 'reclamations' existe et est visible dans Firestore.
+  Future<void> ensureReclamationsTable() async {
+    try {
+      final recSnap = await _db.collection('reclamations').limit(1).get();
+      if (recSnap.docs.isEmpty) {
+        await _db.collection('reclamations').doc('_init_schema').set({
+          'isSystemInit': true,
+          'clientId': 'system',
+          'clientName': 'Système',
+          'clientPhone': '',
+          'clientEmail': '',
+          'vendorName': '',
+          'subject': 'Initialisation table réclamations',
+          'category': 'Autre',
+          'description': 'Document technique initialisant la collection reclamations dans Firestore.',
+          'status': 'resolue',
+          'priority': 'basse',
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
         });
       }
     } catch (_) {}

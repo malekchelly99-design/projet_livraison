@@ -4,10 +4,12 @@ import '../models/app_user.dart';
 import '../models/category_model.dart';
 import '../models/order_model.dart';
 import '../models/product.dart';
+import '../models/reclamation_model.dart';
 import '../services/boutique_service.dart';
 import '../services/catalog_service.dart';
 import '../services/notification_service.dart';
 import '../services/order_service.dart';
+import '../services/reclamation_service.dart';
 import '../services/user_service.dart';
 import '../utils/category_matcher.dart';
 import 'base_controller.dart';
@@ -18,10 +20,12 @@ class VendeurDashboardController extends BaseController {
   final OrderService _orderService;
   final UserService _userService;
   final BoutiqueService _boutiqueService;
+  final ReclamationService _reclamationService;
 
   StreamSubscription<List<Product>>? _productsSub;
   StreamSubscription<List<OrderModel>>? _ordersSub;
   StreamSubscription<List<CategoryModel>>? _categoriesSub;
+  StreamSubscription<List<ReclamationModel>>? _reclamationsSub;
 
   // Catégories dynamiques depuis Firestore
   List<CategoryModel> _firestoreCategories = [];
@@ -98,16 +102,57 @@ class VendeurDashboardController extends BaseController {
   bool _isOpen = true;
   bool get isOpen => _isOpen;
 
+  // Réclamations client associées au vendeur
+  List<ReclamationModel> _reclamations = [];
+  List<ReclamationModel> get reclamations => _reclamations;
+  int get pendingReclamationsCount =>
+      _reclamations.where((r) => r.status == ReclamationStatus.enAttente).length;
+
+  ReclamationStatus? _selectedReclamationStatus;
+  ReclamationStatus? get selectedReclamationStatus => _selectedReclamationStatus;
+  String _reclamationSearchQuery = '';
+  String get reclamationSearchQuery => _reclamationSearchQuery;
+
+  void setReclamationStatusFilter(ReclamationStatus? status) {
+    _selectedReclamationStatus = status;
+    notifyListeners();
+  }
+
+  void setReclamationSearchQuery(String q) {
+    _reclamationSearchQuery = q.trim().toLowerCase();
+    notifyListeners();
+  }
+
+  List<ReclamationModel> get filteredReclamations {
+    return _reclamations.where((r) {
+      if (_selectedReclamationStatus != null && r.status != _selectedReclamationStatus) {
+        return false;
+      }
+      if (_reclamationSearchQuery.isNotEmpty) {
+        final q = _reclamationSearchQuery;
+        final matchClient = r.clientName.toLowerCase().contains(q);
+        final matchSubject = r.subject.toLowerCase().contains(q);
+        final matchDesc = r.description.toLowerCase().contains(q);
+        final matchOrder = r.orderId?.toLowerCase().contains(q) ?? false;
+        final matchCat = r.category.toLowerCase().contains(q);
+        return matchClient || matchSubject || matchDesc || matchOrder || matchCat;
+      }
+      return true;
+    }).toList();
+  }
+
   VendeurDashboardController({
     required this.user,
     CatalogService? catalogService,
     OrderService? orderService,
     UserService? userService,
     BoutiqueService? boutiqueService,
+    ReclamationService? reclamationService,
   })  : _catalogService = catalogService ?? CatalogService(),
         _orderService = orderService ?? OrderService(),
         _userService = userService ?? UserService(),
-        _boutiqueService = boutiqueService ?? BoutiqueService() {
+        _boutiqueService = boutiqueService ?? BoutiqueService(),
+        _reclamationService = reclamationService ?? ReclamationService() {
     _initSubscriptions();
     _initCategories();
   }
@@ -167,6 +212,22 @@ class VendeurDashboardController extends BaseController {
     );
 
     _subscribeOrders();
+    _subscribeReclamations();
+  }
+
+  void _subscribeReclamations() {
+    _reclamationsSub?.cancel();
+    _reclamationsSub = _reclamationService
+        .watchVendorReclamations(vendorId: user.uid, vendorName: shopName)
+        .listen(
+      (list) {
+        _reclamations = list;
+        notifyListeners();
+      },
+      onError: (err) {
+        debugPrint('[VendeurController] Erreur réclamations: $err');
+      },
+    );
   }
 
   void _subscribeOrders() {
@@ -453,11 +514,44 @@ class VendeurDashboardController extends BaseController {
     }
   }
 
+  // --- GESTION DES RÉCLAMATIONS CLIENTS ---
+  Future<void> respondToReclamation({
+    required String reclamationId,
+    required String clientId,
+    required String response,
+    ReclamationStatus? newStatus,
+    String? orderId,
+  }) async {
+    await _reclamationService.respondToReclamation(
+      reclamationId: reclamationId,
+      clientId: clientId,
+      response: response,
+      responderName: 'Boutique $shopName',
+      newStatus: newStatus ?? ReclamationStatus.enCours,
+      orderId: orderId,
+    );
+  }
+
+  Future<void> updateReclamationStatus({
+    required String reclamationId,
+    required String clientId,
+    required ReclamationStatus status,
+    String? orderId,
+  }) async {
+    await _reclamationService.updateStatus(
+      reclamationId: reclamationId,
+      clientId: clientId,
+      newStatus: status,
+      orderId: orderId,
+    );
+  }
+
   @override
   void dispose() {
     _productsSub?.cancel();
     _ordersSub?.cancel();
     _categoriesSub?.cancel();
+    _reclamationsSub?.cancel();
     super.dispose();
   }
 }
